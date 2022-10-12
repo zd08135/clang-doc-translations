@@ -1,7 +1,7 @@
 
-root: ./
+root: ./  
 
-structure:
-    readme: README.md
-    summary: SUMMARY.md
+structure:  
+    readme: README.md  
+    summary: SUMMARY.md  
 

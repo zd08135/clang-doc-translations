@@ -95,19 +95,44 @@ P = (P-42) + Gamma*4;
 参数是完全在内部定义的，来自不同的类别：整数、类型、名字、随机串等。根据参数类别不同，格式化方式也不同。这里给一下DiagnosticConsumer（#没理解）
 下面是Clang支持的参数格式化方式：
 
-```
-"s"格式  Example: "requires %1 parameter%s1"  Class: Integers  Description: 这是个简单的整数格式化方式，主要用于生成英文的诊断信息。如果这个整数是1，什么都不输出；否则输出1。 这种方式可以让诊断内容更符合一些简单的语法，不用生成"requires %1 parameter(s)"这种粗放的表达。
 
-“select” format  Example: "must be a %select{unary|binary|unary or binary}2 operator"  Class: Integers  Description: 这个格式可以把几个相关的诊断合并成1个，不需要把这些诊断的diff用单独的参数替代。不同于指定参数为字符串，这个诊断输入整数参数，格式化字符串根据参数选择对应的选项。本例中，%2参数必须是[0..2]范围的整数。如果%2是0，那么这里就是unary，1的话就是binary，2的话就是“unary or binary”。这使得翻译成其他语言时，可以根据语法填入更有意义的词汇或者整条短语，而不是通过文本的操作处理。select格式的string会在内部进行格式化。
+"s"格式  
+Example: "requires %1 parameter%s1"  
+Class: Integers  
+Description: 这是个简单的整数格式化方式，主要用于生成英文的诊断信息。如果这个整数是1，什么都不输出；否则输出1。 这种方式可以让诊断内容更符合一些简单的语法，不用生成"requires %1 parameter(s)"这种粗放的表达。
 
-“plural” format  Example: "you have %1 %plural{1:mouse|:mice}1 connected to your computer"  Class: Integers  Description: 	这个格式适用于比较复杂的英文的复数形式。这个格式的设计目的是处理对复数格式有一定要求的语言，比如波罗的海一些国家的语言。这个参数包含一系列的<expression:form>的键值对，通过:分隔。从左到右第一个满足expression为真的，其form作为结果输出。 	expression可以没有任何内容，这种情况下永远为真，比如上面的示例（中的mice）。除此之外，这个是若干个数字的condition组成的序列，condition之间由,分隔。condition之间是或的关系，满足任意一个condition就满足整个expression。每个数字condition有下面几种形式： - 单个数字：参数和该数字相等时满足condition，示例"%plural{1:mouse|:mice}4" - 区间。由[]括起来的闭区间，参数在该区间时满足condition，示例"%plural{0:none|1:one|[2,5]:some|:many}2" - 取模。取模符号% + 数字 + 等于号 + 数字/范围。参数取模计算后满足等于数字/在区间内则满足condition，示例"%plural{%100=0:even hundred|%100=[1,50]:lower half|:everything else}1" 这个格式的Parser很严格。只要有语法错误，即便多了个空格，都会导致parse失败，不论什么expression都无法匹配。
+“select” format  
+Example: "must be a %select{unary|binary|unary or binary}2 operator"  
+Class: Integers  Description: 这个格式可以把几个相关的诊断合并成1个，不需要把这些诊断的diff用单独的参数替代。不同于指定参数为字符串，这个诊断输入整数参数，格式化字符串根据参数选择对应的选项。本例中，%2参数必须是[0..2]范围的整数。如果%2是0，那么这里就是unary，1的话就是binary，2的话就是“unary or binary”。这使得翻译成其他语言时，可以根据语法填入更有意义的词汇或者整条短语，而不是通过文本的操作处理。select格式的string会在内部进行格式化。
 
-“ordinal” format  Example: "ambiguity in %ordinal0 argument"  Class: Integers  Description: 这个格式把数字转换成“序数词”。1->1st，3->3rd，只支持大于1的整数。 这个格式目前是硬编码的英文序数词。
+“plural” format  
+Example: "you have %1 %plural{1:mouse|:mice}1 connected to your computer"  
+Class: Integers  
+Description: 	这个格式适用于比较复杂的英文的复数形式。这个格式的设计目的是处理对复数格式有一定要求的语言，比如波罗的海一些国家的语言。这个参数包含一系列的<expression:form>的键值对，通过:分隔。从左到右第一个满足expression为真的，其form作为结果输出。 	expression可以没有任何内容，这种情况下永远为真，比如上面的示例（中的mice）。除此之外，这个是若干个数字的condition组成的序列，condition之间由,分隔。condition之间是或的关系，满足任意一个condition就满足整个expression。每个数字condition有下面几种形式： 
+- 单个数字：参数和该数字相等时满足condition，示例"%plural{1:mouse|:mice}4" 
+- 区间。由[]括起来的闭区间，参数在该区间时满足condition，示例"%plural{0:none|1:one|[2,5]:some|:many}2" 
+- 取模。取模符号% + 数字 + 等于号 + 数字/范围。参数取模计算后满足等于数字/在区间内则满足condition，示例"%plural{%100=0:even hundred|%100=[1,50]:lower half|:everything else}1" 
 
-“objcclass” format  Example: "method %objcclass0 not found"  Class: DeclarationName  Description: （object-c专用，后面翻译） This is a simple formatter that indicates the DeclarationName corresponds to an Objective-C class method selector. As such, it prints the selector with a leading “+”.
+这个格式的Parser很严格。只要有语法错误，即便多了个空格，都会导致parse失败，不论什么expression都无法匹配。
 
-“objcinstance” format  Example: "method %objcinstance0 not found"  Class: DeclarationName  Description: （object-c专用，后面翻译） This is a simple formatter that indicates the DeclarationName corresponds to an Objective-C instance method selector. As such, it prints the selector with a leading “-“.
+“ordinal” format  
+Example: "ambiguity in %ordinal0 argument"  
+Class: Integers  
+Description: 这个格式把数字转换成“序数词”。1->1st，3->3rd，只支持大于1的整数。 这个格式目前是硬编码的英文序数词。
 
-“q” format  Example: "candidate found by name lookup is %q0"  Class: NamedDecl *  Description: 这个格式符号表示输出该声明的完全限定名称，比如说，会输出std::vector而不是vector
+“objcclass” format  
+Example: "method %objcclass0 not found"  
+Class: DeclarationName  
+Description: （object-c专用，后面翻译） This is a simple formatter that indicates the DeclarationName corresponds to an Objective-C class method selector. As such, it prints the selector with a leading “+”.
 
-```
+“objcinstance” format  
+Example: "method %objcinstance0 not found"  
+Class: DeclarationName  
+Description: （object-c专用，后面翻译） This is a simple formatter that indicates the DeclarationName corresponds to an Objective-C instance method selector. As such, it prints the selector with a leading “-“.
+
+“q” format  
+Example: "candidate found by name lookup is %q0"  
+Class: NamedDecl *  
+Description: 这个格式符号表示输出该声明的完全限定名称，比如说，会输出std::vector而不是vector
+
+

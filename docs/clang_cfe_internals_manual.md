@@ -251,12 +251,9 @@ Lexer包含若干个有趣的feature。
 - Lexer可以捕获并处理注释。这个能力在使用-C选项的预处理模式中使用，预处理模式会输入注释内容，并由来获取哪些需要报错的注释信息。
 - lexer可以工作在ParsingFilename模式，这个模式主要是预处理时，处理#include指令时使用。这个模式处理时会将<的内容返回一个string，而不是这个文件中的代码对应的token
 - 分析（#之后的）预处理指令时，Lexer会进入ParsingPreprocessorDirective 模式，这模式会让分析器在处理换行时返回EOD。
-- Lexer会使用LangOptions来设置是否开启三字符[^1]解析，是否识别C++和Object-C的关键字等等。
+- Lexer会使用LangOptions来设置是否开启三字符[^trigraph]解析，是否识别C++和Object-C的关键字等等。
 
-[^a]:三字符：一些语言的键盘无法正确输入某些符号，则输入三字符并在解析时替换成该符号。参考：https://en.wikipedia.org/wiki/Digraphs_and_trigraphs.
-
-
-
+[^trigraph]:三字符：一些语言的键盘无法正确输入某些符号，则输入三字符并在解析时替换成该符号。参考：https://en.wikipedia.org/wiki/Digraphs_and_trigraphs.
 
 
 

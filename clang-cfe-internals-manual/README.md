@@ -30,3 +30,6 @@ TODO: *未来可能会按照clang版本形式，将本文档也划分成不同�
 ## 平台
 
 本文的开发调试主要基于Linux平台(Ubuntu/Fedora/CentOS）
+
+## 章节组织
+

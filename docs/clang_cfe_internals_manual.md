@@ -255,6 +255,18 @@ Lexer包含若干个有趣的feature。
 
 [^trigraph]:三字符：一些语言的键盘无法正确输入某些符号，则输入三字符并在解析时替换成该符号。参考：https://en.wikipedia.org/wiki/Digraphs_and_trigraphs.
 
+## TokenLexer类
+TokenLexer类是一个符号的provider，可以从来自其他地方的token中返回一些token。
+典型应用包括：1) 从宏的展开中返回符号。2) 从一个比较随意的符号buffer中返回符号，这个通过_Pragma使用，主要用于C++语法解析时，防止无法停止的前探。
+
+## MultipleIncludeOpt类
+这个类实现一个简单的小状态机来识别标准的#ifndef XX / #define的习惯用法，这个用法主要用来防止头文件的重复#include。如果一个buffer用了这个惯用法，并且后面跟着#include指令，预处理器就可以很简单地检查这个标记是否定义。如果已经定义了，预处理器就会整个忽略include这个头文件。
+
+# 语法分析库
+这个库包含了一个递归下降的语法分析器，从预处理器中获取符号并通知分析流程的客户端。
+历史上，分析器以前会调用一个抽象的Action接口，其定义了分析事件的一些virtual方法，比如ActOnBinOp。Clang加入C++支持之后，分析器就不在支持通用的Action客户端，而是只与Sema Library交互。不过，分析器仍然访问AST对象，但只能通过不明确的ExprResult和StmtResult类型访问。只有Sema才能通过这些wrapper来看到AST节点的实际内容。
+
+
 
 
 

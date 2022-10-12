@@ -135,4 +135,40 @@ Example: "candidate found by name lookup is %q0"
 Class: NamedDecl *  
 Description: 这个格式符号表示输出该声明的完全限定名称，比如说，会输出std::vector而不是vector
 
+#### 产生诊断
+在Diagnostic*Kinds.td文件中创建入口点之后，你需要编写代码来检测相应情况并且生成诊断。Clang中的几个组件（例如preprocessor, Sema等）提供了一个辅助函数"Diag"，这个函数会创建诊断并且传入参数、代码范围以及诊断相关的其他信息。  
+比如，下面这段代码产生了一个二元表达式相关的错误诊断。  
+```
+if (various things that are bad)
+  Diag(Loc, diag::err_typecheck_invalid_operands)
+    << lex->getType() << rex->getType()
+    << lex->getSourceRange() << rex->getSourceRange();
+```
+这里展示了Diag方法的使用方式：接受一个location（SourceLocation对象）以及诊断的枚举值（来自Diagnostic*Kinds.td文件）。如果这个诊断需要参数，那么这些参数通过<<操作符指定：第一个参数就是%0，第二个是%1，以此类推。这个诊断接口支持指定多种类型的参数，包括整数的：int, unsigned int。字符串的const char*和std::string，用于名称的DeclarationName 和const IdentifierInfo * ，用于类型的QualType，等等。SourceRange对象也可以通过<<指定，不过并没有特定的顺序要求。  
+正如上面所示，添加诊断、生成诊断的流程很简洁直接。最困难的地方在于怎么准确的描述诊断要表达的内容，选择合适的词汇，并且提供正确的信息。好消息是，产生该诊断的调用，应该和诊断信息的格式化方式、以及渲染所用的语言（展示给用户的诊断自然语言）必须是完全独立的。
 
+#### “建议修改”提示
+有些情形下，很明显能看出做一些小的修改就可以修正问题，编译器会生成相应的（建议修改）诊断。比如，语句后缺少分号；或者使用很容易被更现代的形式替代的废弃的语法。在这些情形下，Clang在生成诊断并且优雅恢复方面做了很多工作。  
+不过呢，对于修复方式很明显的情况，诊断可以直接表达成描述如何修改代码来修复问题的提示（引用方式是“建议修改”提示）。比如，添加缺失的分号或者用更好的方式重写废弃的结构。下面是一个C++前端的例子，用来警告右移操作符的含义在C++98与C++11中有变化。  
+```
+test.cpp:3:7: warning: use of right-shift operator ('>>') in template argument
+              will require parentheses in C++11
+A<100 >> 2> *a;
+       ^
+  (       )
+```
+上文中的建议修改提示就是需要加上小括号，并且准确的指出了需要插入小括号的代码的位置。这个提示本身以一种抽象的方式描述了需要做的修改，这个方式是在^号下面加了一行，通过诊断的文本输出“插入”的行为。其他的诊断客户端（这里指会调用诊断接口的程序）可能会选择不同的方式来展示这个代码（比如说内嵌标记），甚至直接帮用户自动改掉。  
+针对错误和警告的建议修改提示需要遵循这些规则：
+- 应用建议修改提示的方式是，将-Xclang -fixit参数传递给driver，所以这些建议只能在非常匹配用户的期望的时候才能使用。
+- 如果应用了建议修改提示，那么Clang必须能从错误中恢复。
+- 针对警告的建议修改提示，不能改变代码的逻辑。不过提示可以用来明确用户的意图，比如建议在操作符优先级不太明显区分的情况下加上括号。
+
+如果某个建议不能遵从上面的规则，那么就把这个建议改成针对NOTE了，针对note的提示不会自动应用。
+
+建议修改提示，通过FixItHint类进行描述；类对应的实例也需要和高亮代码段、参数一样，通过<<操作符传给诊断。创建一个提示对象有如下三个构造器：
+- FixItHint::CreateInsertion(Loc, Code)  
+  提示内容：将指定的参数Code插入到Loc的对应代码位置前面。
+- FixItHint::CreateRemoval(Range)  
+  提示内容：Range所指定的代码段建议删除
+- FixItHint::CreateReplacement(Range, Code)  
+  提示内容：Range所指定的代码段建议删除，并且由Code对应的字符串替代

@@ -570,5 +570,89 @@ void X::f() {} // D2
 A->B->C->D
    \->E
 ```
+我们希望导入A。导入过程使用DFS思想，我们按照ABCDE的顺序访问。访问过程中，可能会出现如下的导入路径
+```c
+A
+AB
+ABC
+ABCD
+ABC
+AB
+ABE
+AB
+A
+```
+如果访问E的时候出现了错误，那么我们对E设置一个错误，然后缩到对B，再到对A
+```c
+A
+AB
+ABC
+ABCD
+ABC
+AB
+ABE // Error! Set an error to E
+AB  // Set an error to B
+A   // Set an error to A
+```
+不过，因为导入CD时并没有错误，CD也是和AB独立的，那么就不能对CD设置错误。那么，在导入结束时，ImportDeclErrors包含了对ABE的错误，不包含CD。
+
+现在处理一下循环依赖的情况，考虑下面的AST
+> 注：下图中还包含了B->E，通过文字表示不太明显
+```c
+A->B->C->D
+   \->E
+```
+在访问过程中，如果E有错误，则会有下面的导入路径，ABE都被设置为错误，但是C怎么处理。
+```c
+A
+AB
+ABC
+ABCA
+ABC
+AB
+ABE // Error! Set an error to E
+AB  // Set an error to B
+A   // Set an error to A
+```
+这里，BC都依赖A，这就说明我们也必须对C设置错误。如果从调用栈回溯的话，A被设置成错误，而依赖A的节点也要设置错误，但是出错时，C并不在这个导入路径上，C是之前被加入过。这个场景只有访问出现循环时才会遇到。如果没有循环，常规的方法是把Error对象传递给调用栈上层。所以这就是每一次声明访问中出现的循环都要记录的原因。  
+
+### 查找问题
+从源上下文导入声明时，需要检查在目标上下文中是否存在名义相同，且结构等效的节点。如果源上下文的节点是一个定义，目标中找到的也是一个定义，那么就不在目标上下文中创建新的节点，而是标记目标上下文中的节点为已导入。如果找到的定义和源上下文中的定义名字一样，但是不是结构等效的，那么（C++的话）就会出现一个违反ODR的错误。如果源节点不是定义，就将其添加到目标节点的二次声明链。这个行为在合并包含相同头文件的不同TU对应的AST时很有必要。比如，（注：同一个类型）我们希望只存在一个std::vector的定义，即便在多个TU中都包含了<vector>头文件。  
+为了找到一个结构等效的节点，可使用常规的C/C++查找函数：DeclContext::noload_lookup()和DeclContext::localUncachedLookup()。这些函数遵循C/C++的名字隐藏的原则，一些特定的声明在声明上下文是无法找到的，比如unamed声明（匿名结构体），非第一次出现的友元声明，模板特化等。这个问题可能导致如果支持常规的C/C++的查找，在合并AST时，会创建冗余的节点，冗余的节点又会导致在节点间结构等效型判定时出错。因为上面这些原因，创建一个查找类，专门用于注册所有的声明，这样这些声明就在导入之后，就可以被查找了。这个类叫：ASTImporterLookupTable。这个查找表会在导入同一个目标上下文的不同ASTImporter之间共享。这也是说明只能通过ASTImporterSharedState进行导入相关查询的原因。
+
+#### ExternalASTSource
+ExternalASTSource是和ASTContext关联的抽象接口。它提供了通过迭代或者名字查找来访问声明上下文中的声明的能力。依赖外部AST的声明上下文需要按需加载其声明信息。这就说明（在未加载时）声明的列表（保存在链表中，头是DeclContext::FirstDecl）可能是空的，不过类似DeclContext::lookup()的成员函数可能会初始化加载流程。  
+一般来讲，外部源代码是和预编译头文件相关的。比如，如果从预编译头文件中加载一个类，那么该类的成员只有在需要在该类的上下文中进行查找时才会被加载。
+考虑LLDB的情况，一个ExternalASTSource接口的实现类，是和对应表达式所在的AST上下文相关联的。这个实现是通过ASTImporter被发现的。通过这种方式，LLDB可以复用Clang的分析机制来从调试数据（比如DWARF，调试信息存储格式）中合成底层的AST。从ASTImporter的角度看，这意味着源和目标上下文中，可能包含存储了外部词法信息的声明上下文。如果目标上下文中的DeclContext对象包含了外部词法信息的存储，就必须特殊处理已经被加载的声明信息。否则，导入过程会变得不可控。比如，使用常规的DeclContext::lookup()在目标上下文中查找存在的声明，在导入声明的过程中，lookup方法会出现递归调用从而导致出现新的导入操作。（在初始化一个尚未注册的查找时，已经开始从源上下文中导入了）所以这里需要用DeclContext::noload_lookup()来代替。
+
+### 类模板的实例化
+不同的TU可能各自包含对相同模板参数的实例化，但是实例化后的MethodDecl和FieldDecl集合是不同的。考虑如下文件：
+```c
+// x.h
+template <typename T>
+struct X {
+    int a{0}; // FieldDecl with InitListExpr
+    X(char) : a(3) {}     // (1)
+    X(int) {}             // (2)
+};
+
+// foo.cpp
+void foo() {
+    // ClassTemplateSpec with ctor (1): FieldDecl without InitlistExpr
+    X<char> xc('c');
+}
+
+// bar.cpp
+void bar() {
+    // ClassTemplateSpec with ctor (2): FieldDecl WITH InitlistExpr
+    X<char> xc(1);
+}
+```
+
+在foo.cpp中，使用了(1)这个构造器，显式将a初始化为3，那么InitListExpr {0}这个初始化表达式就没被使用，也没有实例化相关的AST节点。然后，在bar.cpp中，我们使用了(2)这个构造器，没有使用初始化a的构造器，那么就会执行默认的InitListExpr并实例化。在合并foo.cpp和bar.cpp的AST时，就必须为X<char>这个模板实例化创建全部所需的节点。也就是说，如果找到了ClassTemplateSpecializationDecl对象，就需要把源上下文中，ClassTemplateSpecializationDecl对象的所有字段采用这个方式合并：如果一个InitListExpr不存在就复制。这个机制也适用于默认参数和异常规格的实例化。
+
+### 声明可见性
+在导入外部可见的全局变量时，查找过程会找到同名变量，但是却是静态可见的。明确一下，就是不能把他们放到同一个二次声明链中。这个情况对函数也适用。而且，还需要特殊注意匿名命名空间的枚举、类。那么，我们会在查找结果中过滤，只考虑和当前导入的声明具有相同可见性的结果。  
+这里认为，匿名命名空间的两个变量，只有来源于同一个源AST上下文的才认为是可见性相同的。  
 
 

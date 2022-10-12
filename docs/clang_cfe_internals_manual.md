@@ -2,13 +2,13 @@
 
 ## 源码地址
 
-参考llvm github:
-https://github.com/llvm/llvm-project.git
-https://gitee.com/mirrors/LLVM.git  （github地址的国内镜像，每日同步）
+参考llvm github:  
+https://github.com/llvm/llvm-project.git  
+https://gitee.com/mirrors/LLVM.git  （github地址的国内镜像，每日同步）  
 
 ## 版本选择
 
-基于clang11版本文档翻译
+基于clang11版本文档翻译  
 https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html
 
 选择11.0版本的代码，具体版本如下：

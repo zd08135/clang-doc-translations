@@ -765,7 +765,7 @@ Clang中，属性在如下三个时机中处理：进行语法分析时，从语
 最终，在语法分析属性可以转换成语义分析属性时，会以Decl和ParsedAttr作为参数调用Sema::ProcessDeclAttributeList()方法。语法属性转换成语义属性这个流程依赖于属性的定义和语义要求。转换结果的是一个挂在该Decl上的语义属性对象，可以通过Decl::getAttr<T>()获取。
 语义属性的结果也通过Attr.td中的属性定义管理。这个定义用于自动生成实现该属性功能的代码，比如clang::Attr的子类，用于语法分析的信息，部分属性的语义检查等。
 ### include/clang/Basic/Attr.td
-为Clang添加新属性的第一步是在include/clang/Basic/Attr.td中添加其定义。这个表生成定义必须继承Attr（表生成，而非语义的）的定义，或者一个或多个其继承者。大部分属性都是继承自InheritableAttr类型，这个类型说明该属性可以被其关联的Decl的二次声明继承。InheritableParamAttr和InheritableAttr类似，不同点在于InheritableParamAttr是作用于参数的。如果某个属性是类型相关的，那么需要继承的类型是TypeAttr，并且也不会生成对应的AST内容。（注意，本文档不涵盖类型属性创建的内容）。一个属性继承IgnoredAttr的话，那么整个属性会被分析，但是只会生成一个忽略的属性诊断，这种场景可以应用于非Clang编译器的需求。
+为Clang添加新属性的第一步是在include/clang/Basic/Attr.td中添加其定义。这个表生成定义必须继承Attr（表生成，而非语义的）的定义，或者一个或多个其继承者。大部分属性都是继承自InheritableAttr类型，这个类型说明该属性可以被其关联的Decl的二次声明继承。InheritableParamAttr和InheritableAttr类似，不同点在于InheritableParamAttr是作用于参数的。如果某个属性是类型相关的，那么需要继承的类型是TypeAttr，并且也不会生成对应的AST内容。（注意，本文档不涵盖类型属性创建的内容）。一个属性继承IgnoredAttr的话，那么整个属性会被分析，但是只会生成一个忽略的属性诊断，这种场景可以应用于非Clang编译器的需求。  
 这个定义包括几项内容，比如属性的语义名称，支持的拼写方式，需要的参数和其他内容。大多数Attr类的表生成类型的成员不需要其继承的定义像默认定义那样完善。不过每个属性至少得包含一个拼写列表，主语列表和文档列表。
 
 #### 拼写
@@ -774,13 +774,35 @@ Clang中，属性在如下三个时机中处理：进行语法分析时，从语
 | 拼写 | 描述 |  
 | :-- | :-- |  
 | GNU | GNU风格语法__attribute__((attr)) 和占位 |
+| CXX11 | C++风格语法[[attr]]，被放在编译器指定的命名空间里。 |
+| C2x | C风格语法[[attr]]，被放在编译器指定的命名空间里。 |
+| Declspec | 微软风格语法__declspec(attr) |
+| Keyword | 这个属性作为关键字进行拼写，需要特殊处理语法分析 |
+| GCC | 指定两种拼写，第一种是GNU风格拼写，第二种是C++风格拼写（放在gnu命名空间中）只有GCC支持的属性才能使用这种拼写。 |
+| Clang | 指定两种或者三种拼写，第一种是GNU风格拼写，第二种是C++风格拼写（放在clang命名空间中），第三种是可选的C风格拼写（放在clang命名空间中）。默认使用第三种。 |
+| Pragma | 这个属性拼写是#pragma，需要预处理器进行特殊处理。如果这个属性只被Clang使用，那么其命名空间就得是clang。注意这个拼写不能对声明的属性使用。 |
 
-CXX11	C++风格语法[[attr]]，被放在编译器指定的命名空间里。
-C2x	C风格语法[[attr]]，被放在编译器指定的命名空间里。
-Declspec	微软风格语法__declspec(attr)
-Keyword	这个属性作为关键字进行拼写，需要特殊处理语法分析
-GCC	指定两种拼写，第一种是GNU风格拼写，第二种是C++风格拼写（放在gnu命名空间中）只有GCC支持的属性才能使用这种拼写。
-Clang	指定两种或者三种拼写，第一种是GNU风格拼写，第二种是C++风格拼写（放在clang命名空间中），第三种是可选的C风格拼写（放在clang命名空间中）。默认使用第三种。
-Pragma	这个属性拼写是#pragma，需要预处理器进行特殊处理。如果这个属性只被Clang使用，那么其命名空间就得是clang。注意这个拼写不能对声明的属性使用。
+#### 主语
+
+属性会关联一个或多个Decl主语。如果这个属性尝试附加到一个和其不关联的主语上，就会自动报一个诊断问题。这个诊断是警告还是错误，取决于这个属性的SubjectList是如何定义的，默认情况是警告。展示给用户的诊断信息由该SubjectList中的主语信息自动确定，当然也可以为该SubjectList指定一个自定义的诊断参数。这些因为主语列表错误而产生的诊断具有diag::warn_attribute_wrong_decl_type或者diag::err_attribute_wrong_decl_type类型，参数的枚举定义在include/clang/Sema/ParsedAttr.h之内。如果之前有一个被加入SubjectList的Decl节点，那么在utils/TableGen/ClangAttrEmitter.cpp中的自动决定诊断参数的逻辑也需要更新。
+默认情况下，SubjectList中的所有主语，要么是DeclNodes.td中的定义的一个Decl节点，要么是StmtNodes.td中定义的一个statement节点，不过也可以通过SubsetSubject创建更复杂的主语。每个这样的对象包含一个相关的base主语（必须是Decl或者Stmt节点，但是不能是SubsetSubject节点）以及一些用来判定某些属性是否属于该主语的自定义节点。比如，一个NonBitField SubsetSubject对象关联一个base主语FieldDecl，这个对象用来检查该FieldDecl对象是否是一个bit位。如果一个SubjectList中有一个SubsetSubject对象，那么就需要同时提供一个自定义的诊断参数。  
+针对属性主语的自动化检查在HasCustomParsing != 1的情况下会自动执行。
+
+#### 文档
+每个属性都必须有关联的文档。文档由对公的web服务的后台进程每日自动生成。一般情况下，一个属性添加了文档的话，该文档就会作为include/clang/Basic/AttrDocs.td中一个独立的定义存在。  
+如果这个属性不是对外可用的，或者是没有可见拼写的隐式创建的，对应的文档列表可以指定一个Undocument对象。否则，属性的文档必须在AttrDocs.td中定义。
+文档继承自Documentation表生成类型。所有继承的类型都必须制定一个文档目录，以及实际的文档内容本身。除此之外，还可以指定一个自定义的头部，如果没有的话就是用默认的头部。  
+预定义的文档目录有4种：DocCatFunction指和类似函数的主语关联的属性，DocCatVariable指和类似变量的主语关联的属性，DocCatType对应类型属性，DocCatStmt对应语句属性。自定义的文档目录需要针对功能上相似的一组属性使用，方便提供针对这些属性的大纲类信息。比如，被消费的注解属性可以统一定义一种DocCatConsumed目录，这样可以在更高的层级上解释被消费的注解的具体含义。  
+文档内容（不论是属性还是目录）使用reStructuredText (RST)语法撰写。  
+写完属性的文档之后，需要在本地测试用服务器生成文档时是否有问题。本地测试需要使用新构建的clang-tblgen。执行下面的命令可以生成新的属性文档：
+```shell
+clang-tblgen -gen-attr-docs -I /path/to/clang/include /path/to/clang/include/clang/Basic/Attr.td -o /path/to/clang/docs/AttributeReference.rst
+```
+本地测试没有完成的话，不要提交针对AttributeReference.rst的修改。这个文件由服务器自动生成，针对该文件的修改会被覆盖。
+
+#### 参数
+参数可以有选择地指定传给属性的参数列表。属性的参数可以是语法形式的，也可以是语义形式的。比如，如果Args的格式是[StringArgument<"Arg1">, IntArgument<"Arg2">]，那么__attribute__((myattribute("Hello", 3)))就是合法的使用；其在进行语法分析时需要2个参数，对应的Attr子类的构造函数中，针对该语义属性需要1个字符串和1个整形数作为参数。
+每个参数都有名字，以及指明该参数是否可选的标记位。参数相关的C++类型由参数的定义类型决定。如果已存在的参数类型不够用，可以创建新的类型，但是创建新类型时，需要修改utils/TableGen/ClangAttrEmitter.cpp来为新类型提供合适的支持。
+
 
 

@@ -251,9 +251,9 @@ Lexer包含若干个有趣的feature。
 - Lexer可以捕获并处理注释。这个能力在使用-C选项的预处理模式中使用，预处理模式会输入注释内容，并由来获取哪些需要报错的注释信息。
 - lexer可以工作在ParsingFilename模式，这个模式主要是预处理时，处理#include指令时使用。这个模式处理时会将<的内容返回一个string，而不是这个文件中的代码对应的token
 - 分析（#之后的）预处理指令时，Lexer会进入ParsingPreprocessorDirective 模式，这模式会让分析器在处理换行时返回EOD。
-- Lexer会使用LangOptions来设置是否开启三字符[^trigraph]解析，是否识别C++和Object-C的关键字等等。
+- Lexer会使用LangOptions来设置是否开启三字符解析，是否识别C++和Object-C的关键字等等。
 
-[^trigraph]:三字符：一些语言的键盘无法正确输入某些符号，则输入三字符并在解析时替换成该符号。参考：https://en.wikipedia.org/wiki/Digraphs_and_trigraphs.
+> 三字符：一些语言的键盘无法正确输入某些符号，则输入三字符并在解析时替换成该符号。参考：https://en.wikipedia.org/wiki/Digraphs_and_trigraphs.
 
 ## TokenLexer类
 TokenLexer类是一个符号的provider，可以从来自其他地方的token中返回一些token。
@@ -329,8 +329,16 @@ test.c:8:1: error: indirection requires pointer operand ('foo' invalid)
 QualType类是平凡的值类型，特点是小，一般通过值传递，且查找起来很高效。其思想为保存类型本身，以及类型限定符（比如const, volatile, restrict或者根据语言扩展的其他限定符）概念上，QualType包含由Type*指针和指明限定符的bit位组成的pair。  
 用bit表示限定符，在增删改查方面效率都很高。  
 将限定符的bit和类型分离保存的好处是，不需要针对不同的限定符也复制出不同的Type对象（比如，const int或者volatile int都只需要指向同一个int类型），这就减少了内存开销，在区分Type时也不需要考虑限定符信息。  
-实现上，最常见的2个限定符（const和restrict）保存在指向Type的指针的最低位，还包含一位标识是否存在其他的限定符（新的部分要分配在堆上）。所以QualType的内存size和指针基本一致。[^qualtypecode]  
-[^qualtypecode]:QualType在这里：clang/include/clang/AST/Type.h。其中，PointerIntPair这个类将一个指针和一个int合在一起存储，低位bit放int，高位放指针本身；在保证指针值完整保留的场景下可以这样来节省空间。     
+实现上，最常见的2个限定符（const和restrict）保存在指向Type的指针的最低位，还包含一位标识是否存在其他的限定符（新的部分要分配在堆上）。所以QualType的内存size和指针基本一致。  
+> QualType在这里：clang/include/clang/AST/Type.h。
+> ```c
+> class QualType {
+> ...
+> // Thankfully, these are efficiently composable.
+> llvm::PointerIntPair<llvm::PointerUnion<const Type *, const ExtQuals *>,
+>                      Qualifiers::FastWidth> Value;
+> ```
+> 其中，PointerIntPair这个类将一个指针和一个int合在一起存储，低位bit放int，高位放指针本身；在保证指针值完整保留的场景下可以这样来节省空间。     
 
 ## 声明name信息
 DeclarationName类用来描述Clang中的一个声明的name。C系语言的生命有多种方式。大多数的声明name都是最简单的标识符，比如f(int x)中的'f'和'x'。C++中，声明name还包括类构造函数（struct Klass { Klass(); }中的 Klass），类析构函数（~Klass），重载的操作符（operator+），以及转换函数(operator void const *)。在Objective-C中，声明name包括，OC的方法，包括方法名和参数名。因为因为上面这些全部的实体，包括变量，函数，OC方法，C++构造析构函数，操作符之类都由Clang的标准NamedDecl类描述，所以就设计了DeclarationName类来高效的表达不同种类的name）  
@@ -352,7 +360,7 @@ C++11中的字面操作符。name是其定义的后缀，比如operator "" _foo�
 - CXXUsingDirective  
 C++ using指令。实际上using指令不算是NamedDecl类，放到这里是因为实现上方便用DeclContext类来保存其值。
 
-[^overloadop]:OverloadedOperatorKind见：clang/include/clang/Basic/OperatorKinds.h与clang/include/clang/Basic/OperatorKinds.def
+> OverloadedOperatorKind见：clang/include/clang/Basic/OperatorKinds.h与clang/include/clang/Basic/OperatorKinds.def
 
 DeclarationName实例很容易被创建、复制、比较。通常情况下（标识符，0或1参数的OC selector），只需要一个指针长度的存储空间，其他情况则需要紧密、独立的存储。DeclarationName可以通过bit比较来确定是否相等，也可以通过>,<,>=,<=等操作进行排序（主要指标识符，可以通过字母排序；其他类型则排序不确定）也可以被存放在llvm的DenseSet和DenseMap中。  
 DeclarationName实例根据其name的种类不同，有不同的创建方式。普通的标识符和OC selector可以隐式转换为DeclarationName；C++构造器，析构器，重载操作符，转换函数则是从DeclarationNameTable获得的ASTContext::DeclarationNames实例。getCXXConstructorName, getCXXDestructorName, getCXXConversionFunctionName, getCXXOperatorName会各自返回对应的C++特定函数name。  
@@ -464,5 +472,103 @@ mylib::X *xp; // okay: mylib::X refers to mylib::debug::X
 ```
 ### 多段定义声明上下文
 C++的命名空间有个比较有意思的属性：多次定义，各段定义的声明在效果上会最终合并起来（从语义角度看）比如，下面两段代码是等价的。
+
+```c
+// Snippet #1:
+namespace N {
+  void f();
+}
+namespace N {
+  void f(int);
+}
+
+// Snippet #2:
+namespace N {
+  void f();
+  void f(int);
+}
+```
+在Clang的表达中，Snippet #1的部分是2个分离的NamespaceDecl，每个都包含一个声明了f的上下文。但是，从语义视图来看，在N中对f的名字查找会将两个声明都返回。  
+DeclContext可以内部管理多段定义的声明上下文。DeclContext::getPrimaryContext可以取出“主要”的上下文，这个上下文用于记录语义视图的声明查找表。给定一个DeclContext，调用者可以通过DeclContext::collectAllContexts获取语义上与该Context连接的所有上下文，也包括其自身，返回结果顺序和源码顺序一致。这类的方法只有在内部查找，插入DeclContext对象时使用，大部分的外部客户端都不需要调用之。  
+同一个实体可以在不同的模块中多次定义，那么描述同一个类的CXXRecordDecl也可以定义多次。在这种场景下，只有其中一个定义会被Clang视作真正的定义，其他的则会被视作包含成员声明的类声明。不同定义中对应的成员会按照二次声明或者合并方式处理。（注：实际上不能在同一个namespace的不同段中定义同名的类）  
+
+## ASTImporter
+ASTImporter类将AST节点从一个ASTContext导入另一个。可参考ASTImporter和import算法描述了解更多信息。
+
+### 抽象语法图
+和名字不同，Clang的AST并不是一个真的树，而是带回路的有向图。有向图的一个示例是ClassTemplateDecl与其模板实例化后的CXXRecordDecl。实例化之后的CXXRecordDecl描述了该类模板的成员和方法，ClassTemplateDecl则记录了模板相关的信息，比如，模板参数等。ClassTemplateDecl::getTemplatedDecl()可以获得实例化的CXXRecordDecl类，CXXRecordDecl::getDescribedTemplate()反过来可以获得其所实例化的模板类；所以这两个模板与实例的节点之间就存在一个回路。AST中也存在其他不同的回路。
+
+### 结构等效性
+导入AST节点的操作，会将节点整个复制到目标ASTContext中。复制这个操作指我们会在目标的Context中创建一个新节点，并且设置其属性和源节点相等。在复制之前，必须保证源节点和目标Context中的已存在节点之间没有结构等效性；如果有的话，那么复制就没有区别，就跳过复制。
+结构等效性的正式定义：两个AST节点满足以下条件时可以认为是结构等效的。
+- 同为内置类型，且类型相同（比如int和int是结构等效的）
+- 同为函数类型，所有参数结构等效
+- 同为记录类型（struct/class之类），其所有字段按定义顺序，标识符名字一致，且类型为结构等效。
+- 变量或者函数声明，标识符名字一致，类型结构等效。
+
+在C语言中，如果两个类型是compatible的，那么他们是结构等效的。C++标准中没有compatible的概念。这里我们拓展了结构等效的定义来处理模板和其实例化的场景：除了检查前述属性，还需要检查模板形参/实参的等效性。  
+结构等效性检查逻辑可以（并且目前是）独立于ASTImporter，换句话说，clang::Sema也在使用之。  
+节点之间的等效性有时会依赖于其他节点间的等效性，实现上，这个检查是在沿着图的边并发执行的。同时在图的不同节点上遍历，实际上采用的是类似BFS的实现。比如，我们要计算<A,B>的等效性，然后如果计算过程中走到了计算<X,Y>的话，那么说明：
+- A和X是来自同一个ASTContext
+- B和Y是来自同一个ASTContext
+- A和B不一定来自同一个ASTContext
+- 如果A == X 且 B == y（指针相同），那么（出现了回路）：A和B结构等效 <=> 从<A,B>到<X,Y>过程的所有节点都是结构等效的。
+
+比较两个类或者枚举，而其中一个是未完成的，或者包含未完全加载的外部字面声明，那么就不能退一步只比较已包含的声明。这种情况下，我们就认为他们是否等效，取决于名字是否一样。这也是我们比较定义的前向声明的方式。  
+（注：代码中，如果一个定义的提前声明出现了2次，那么可以认为这两个声明一样的，即结构等效的）
+
+### 二次声明链
+低版本的ASTImporter的合并机制会合并声明信息，即，其尝试只保留一个声明，而不是维持一个二次声明链。这个目标是想简单跳过函数原型而直接导入函数定义。这里举例来说明这个目标的问题，考虑一个空的目标context，以及下面这个源context中的virtual函数声明：     
+```c
+struct B { virtual void f(); };
+void B::f() {} // <-- let's import this definition
+```
+如果直接合并掉声明信息，直接导入定义。那么，导入的结果就是一个实际为定义的声明，但是声明的isVirtual()方法就会返回false，原因是这个定义本身不是virtual的，而是函数原型的属性。  
+为了解决这个问题，要么就给这个定义设置virtual相关的flag（但这样就等于创建一个不应该被创建的AST），要么就是将函数的整个二次生命链导入。新版本的ASTImporter采用了后者，按照在源context中的顺序，导入所有的函数声明，不管是定义还是原型。  
+如果在目标context中已存在一个定义，那么就不能导入新的定义，而是使用现有的定义。不过我们可以导入原型：将新的原型链到现有的定义后面；不管什么时候，只要导入了一个新的原型，就会将该原型加到二次声明链后面，那么在一些特定场景下，可能会导致很长的声明链，比如，从多个不同的TU中，导入了包含相同头文件的原型。   
+为了减少长链带来的影响，可以比较原型是否相同并进行合并。  
+声明链的工作方式使得在复制时，会复制来自源AST的所有信息。尽管如此，有一个关于成员函数的问题：对于“自由”函数的原型可以很多个，但是类成员函数的原型只能有一个。
+```
+void f(); // OK
+void f(); // OK
+
+struct X {
+  void f(); // OK
+  void f(); // ERROR
+};
+void X::f() {} // OK
+```
+所以，类成员函数的原型必须要合并，不能简单将新的原型链到已有的类中的原型上。考虑下面的上下文：
+```c
+// "to" context
+struct X {
+  void f(); // D0
+};
+
+// "from" context
+struct X {
+  void f(); // D1
+};
+void X::f() {} // D2
+```
+当我们从源context中导入f的原型和定义时，得到的声明链像这样：D0 -> D2'，D2'是D2的一个拷贝。  
+一般情况下，在导入声明时（比如枚举和类），会将新导入到声明添加到已存在的声明链之后（如果他们是结构等效的）。但是，并不会和处理函数一样，将所有的调用链都导入。截至目前，我们并未看到在前向声明中，出现其他和成员函数的virtual标记类似的情况，不过未来也许会有变化。  
+
+### 导入过程的遍历
+节点相关的导入机制在ASTNodeImporter::VisitNode()相关函数中实现，比如VisitFunctionDecl()。在导入声明时，首先会导入用于调用该节点的构建器所需要的信息，所有需要后续设置的值在节点被创建之后设置。比如，针对FunctionDecl的情况，首先需要导入其声明所在的声明上下文，然后创建FunctionDecl这个类，再之后才导入函数的实现。这说明，在AST节点之前实际存在隐式的依赖关系；这些依赖关系决定我们从源头中按照何种顺序访问节点。实现中，按照常规图遍历算法（比如DFS）的思想，导入时会在ASTImporter::ImportedDecls中记录已经访问过的节点，创建新节点时，会直接加入到ImportedDecls中，只有在将新节点加入之后，才能处理新的声明的导入，否则会没法处理循环依赖的情况。为了强制保证按照上面的顺序执行，所有的AST节点的构造器都会被包装在GetImportedOrCreateDecl()。这个包装器保证新创建的节点会立马被标记为已导入；另一方面，如果一个声明被标记为已导入，那么就直接返回该声明在目标context中的对应节点。所以，直接调用一个声明的::Create()方法会导致错误，不允许这么做。  
+即便使用了GetImportedOrCreateDecl()，如果导入方式错误，也可能出现导入无限递归的情况。考虑导入A时，导入B需要先于A的创建之前执行（A的构造器可能依赖B的引用），然后导入B也依赖A的先执行。为了保证针对模板的场景，也可以跳出循环依赖，需要一些额外的关注：只有在CXXRecordDecl创建之后，才能标记为该模板已被实例化。实践中，在目标上下文中创建节点之前，需要防止导入A的构造器不需要的节点。  
+
+### 错误处理
+每个导入的函数要么返回一个llvm::Error，要么返回一个llvm::Expected<T>对象。这样写强制调用者去检查导入函数的返回值。如果在导入过程中出错，就返回错误。（特殊情况：在导入类的成员时，会收集每个成员各自的错误，并且拼接到一个Error对象中）在处理声明时，会先缓存住这些错误。处理下一个导入的调用时，就会返回这些错误。这样，使用这些库的客户端就会拿到一个Error对象，而它们必须对其进行处理。  
+在导入一个特定声明时，可能出现在识别到错误之前，已经提前创建了若干个AST节点。这种情况下，错误会返回给调用者，但是这些“脏”节点会保留在目标上下文中。理想状况下是不应该有这样的节点的，但是可能在创建节点时，还并没发现错误，而是之后的过程中才出现错误的。因为AST节点是不可变的（大部分情况是为了防止已存在节点被删除），会将这些节点标记为错误。  
+源context中声明关联的错误会记录在ASTImporter::ImportDeclErrors中，目标context的声明关联错误记录在ASTImporterSharedState::ImportErrors中。注意，可能有一些ASTImporter对象会从不同的源上下文中导入到同一个目标上下文，这种情况下，他们会共享目标上下文中的关联错误。  
+错误出现时，会在调用栈，和所有依赖节点上传播。目前会尝试将接地那标记为错误，方便客户端处理，而这无法处理有循环依赖的情。针对循环依赖，必须要记录该回路上的所有节点的错误信息。
+导入路径是调用导入方法时，访问节点的列表。如果A依赖B，那么路径中会记录一条边A->B，从导入函数的调用链中可以看到基本一致的路径。
+考虑下面的AST，->表示导入的依赖关系（所有的节点都是声明）
+> 注：下图中还包含了B->E，通过文字表示不太明显
+```c
+A->B->C->D
+   \->E
+```
 
 

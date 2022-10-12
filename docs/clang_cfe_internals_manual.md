@@ -325,11 +325,144 @@ test.c:8:1: error: indirection requires pointer operand ('foo' invalid)
 第二个问题是，如何访问这个指针对应的类型。从上面的例子继续，\*操作的结果类型，必然是该表达式所指向的类型（比如，定义bar vx, \*vx的类型，就是foo，就是int）。为了找出这个类型，我们需要找到可以最佳捕获这个typedef信息的PointerType的实例。如果表达式本身的类型就是字面上的PointerType，那么就可以直接返回类型；否则我们必须沿着typedef信息挖下去。比如，若一个子表达式的类型是foo\*，那么我们就返回这个类型。如果类型是bar，我们希望返回的是foo\*（但是不是int\*）。为了达到这一目的，Type类提供了getAsPointerType()方法来检查类型本身是不是指针，如果是的话，就直接返回；否则会找一个最佳匹配的；如果不能匹配就返回空指针。  
 这个结构有一点不是很清楚，需要好好的研究下才能明白。  
 
-### QualType类
+## QualType类
 QualType类是平凡的值类型，特点是小，一般通过值传递，且查找起来很高效。其思想为保存类型本身，以及类型限定符（比如const, volatile, restrict或者根据语言扩展的其他限定符）概念上，QualType包含由Type*指针和指明限定符的bit位组成的pair。  
 用bit表示限定符，在增删改查方面效率都很高。  
 将限定符的bit和类型分离保存的好处是，不需要针对不同的限定符也复制出不同的Type对象（比如，const int或者volatile int都只需要指向同一个int类型），这就减少了内存开销，在区分Type时也不需要考虑限定符信息。  
 实现上，最常见的2个限定符（const和restrict）保存在指向Type的指针的最低位，还包含一位标识是否存在其他的限定符（新的部分要分配在堆上）。所以QualType的内存size和指针基本一致。[^qualtypecode]  
 [^qualtypecode]:QualType在这里：clang/include/clang/AST/Type.h。其中，PointerIntPair这个类将一个指针和一个int合在一起存储，低位bit放int，高位放指针本身；在保证指针值完整保留的场景下可以这样来节省空间。     
+
+## 声明name信息
+DeclarationName类用来描述Clang中的一个声明的name。C系语言的生命有多种方式。大多数的声明name都是最简单的标识符，比如f(int x)中的'f'和'x'。C++中，声明name还包括类构造函数（struct Klass { Klass(); }中的 Klass），类析构函数（~Klass），重载的操作符（operator+），以及转换函数(operator void const *)。在Objective-C中，声明name包括，OC的方法，包括方法名和参数名。因为因为上面这些全部的实体，包括变量，函数，OC方法，C++构造析构函数，操作符之类都由Clang的标准NamedDecl类描述，所以就设计了DeclarationName类来高效的表达不同种类的name）  
+对于一个DeclarationName的实例N，N.getNameKind()会返回一个值来说明N中的name是哪一种。包括下面10个选项（都是在DeclarationName类的内部）：
+- Identifier  
+普通标识符。可通过N.getAsIdentifierInfo()获取对应的IdentifierInfo*指针
+- ObjCZeroArgSelector, ObjCOneArgSelector, ObjCMultiArgSelector  
+OC的selector信息（暂略）
+- CXXConstructorName  
+C++的构造器的name，可通过N.getCXXNameType()来获取该构造器准备构造的类型。这个类型是一个公认类型，因为所有的构造器的name是相同的。
+- CXXDestructorName  
+C++的析构器的name，可通过N.getCXXNameType()来获取该构造器准备构造的类型。这个类型是一个公认类型。
+- CXXConversionFunctionName  
+C++转换函数，转换函数的name是其转换目标的类型，比如：operator void const *。可通过N.getCXXNameType()获取转换目标的类型，这个类型是一个公认类型。
+- CXXOperatorName     
+C++重载操作符的类型。name是其拼写，比如：operator+或者operator new []。可通过N.getCXXOverloadedOperator()获取重载的操作符类型（OverloadedOperatorKind的值）[^overloadop]
+- CXXLiteralOperatorName  
+C++11中的字面操作符。name是其定义的后缀，比如operator "" _foo的name是_foo。使用N.getCXXLiteralIdentifier()来获取对应标识符的IdentifierInfo*信息。  
+- CXXUsingDirective  
+C++ using指令。实际上using指令不算是NamedDecl类，放到这里是因为实现上方便用DeclContext类来保存其值。
+
+[^overloadop]:OverloadedOperatorKind见：clang/include/clang/Basic/OperatorKinds.h与clang/include/clang/Basic/OperatorKinds.def
+
+DeclarationName实例很容易被创建、复制、比较。通常情况下（标识符，0或1参数的OC selector），只需要一个指针长度的存储空间，其他情况则需要紧密、独立的存储。DeclarationName可以通过bit比较来确定是否相等，也可以通过>,<,>=,<=等操作进行排序（主要指标识符，可以通过字母排序；其他类型则排序不确定）也可以被存放在llvm的DenseSet和DenseMap中。  
+DeclarationName实例根据其name的种类不同，有不同的创建方式。普通的标识符和OC selector可以隐式转换为DeclarationName；C++构造器，析构器，重载操作符，转换函数则是从DeclarationNameTable获得的ASTContext::DeclarationNames实例。getCXXConstructorName, getCXXDestructorName, getCXXConversionFunctionName, getCXXOperatorName会各自返回对应的C++特定函数name。  
+
+## 声明上下文
+程序中的每个声明都存在对应的声明上下文，比如翻译单元TU，命名空间，类，函数。声明上下文在Clang中由DeclContext类代描述，不同的声明上下文的AST节点（TranslationUnitDecl, NamespaceDecl, RecordDecl, FunctionDecl等）都会继承该类。DeclContext类提供了处理声明上下文的一些通用能力。  
+
+- 声明的源码视图与语义视图  
+DeclContext提供了存储在其中的声明信息的两种视图。源码视图可以准确表达输入的源码，包括多次声明（见下面的二次声明与重载）；语义视图则表达了程序的语义信息。这两个视图在语义分析与构建AST的过程中会同步更新。
+- 上下文中的声明信息  
+每个声明上下文都包括一些声明信息，比如C++的类（由RecordDecl类表达）中包含不同的成员函数，字段，内嵌类型等等。所有这些声明都可以保存在DeclContext中，可以通过[DeclContext::decls_begin(), DeclContext::decls_end())（左开右闭）迭代器遍历这些声明。这个机制提供了声明的源码视图
+- 声明的查找  
+DeclContext结构提供了高效的name查找能力。比如，可以在一个命名空间N中查找N::f，这个查找基于一个延迟构造的数组或者哈希表实现。查找操作提供了声明的语义视图。
+- 声明的所有权  
+DeclContext掌管着其上下文中的声明的所有权，负责其内存空间的管理，序列化，反序列化。
+
+所有的声明都保存在声明上下文中。可以通过DelContext查询声明的信息，也可以通过Decl实例反向查找其所在的DeclContext对象，可参考“词法和语义上下文”了解如何解析context的信息。  
+
+### 二次声明与重载
+在TU内部，一个实体可以被声明多次。比如，可以声明一个函数f，之后二次声明为一个内联函数。
+```
+void f(int x, int y, int z = 1);
+inline void f(int x, int y, int z) { /* ...  */ }
+```
+f在声明上下文的源码视图和语义视图中的表达式不同的。源码视图中，所有的二次声明都存在，按照源码中的顺序排列，方便需要查看代码结构的客户端使用。在语义视图中，因为覆盖的缘故，只有后面的内联函数f是可以被查找的。
+（注意，存在f在语句块中，或者作为友元被声明等情况；通过f进行查找时，不一定就是返回最靠后的这个）
+在语义视图中，函数重载会显式表达出来。比如下面的声明：
+```
+void g();
+void g(int);
+```
+DeclContext::lookup会返回一个DeclContext::lookup_result，包含一个range的指向"g"的声明的迭代器。对程序进行语义分析，但是不关心实际的代码的客户端，可以使用语义视图。
+
+### 词法和语义上下文
+每个声明都有两个潜在的上下文：词法上下文，对应声明上下文的代码视图；语义上下文，对应声明上下文的语义视图。可以通过Decl::getLexicalDeclContext返回源码视图的DeclContext，Decl::getDeclContext返回语义视图的DeclContext；返回的都是DeclContext实例的指针。对于大多数的声明，返回的这两个上下文是一致的，比如：
+```
+class X {
+public:
+  void f(int x);
+};
+```
+X::f对应的词法和语义上下文都是X的声明上下文。接下来，在X之外定义X::f
+```
+void X::f(int x = 17) { /* ...  */ }
+```
+f的定义的词法和语义上下文就不同了。词法的上下文就是这个定义所在的代码对应的上下文，即包含X的TU的上下文；该上下文中，根据[decls_begin(), decls_end())遍历可以找到X::f的声明信息。语义上下文依旧是X的声明上下文，原因是f在语义上是X的成员。通过DeclContext进行名字查找可以找到X::f的定义（包括声明信息和默认参数）
+
+### 透明的声明上下文
+C和C++中，有一些上下文是这样：其中的声明在逻辑上放在其他声明之内，在实际的名字查找时，需要逃逸到紧外层的作用域（从而能被查找）。最明显的示例是枚举类型，比如：
+```C
+enum Color {
+  Red,
+  Green,
+  Blue
+};
+```
+上述示例中，Color是一个枚举，对应一个包含Red, Green, Blue这几个枚举值的声明上下文。遍历该枚举中的声明时，可以获得Red, Green, Blue。但是，在Color之外，可以使用Red这个枚举值却不需要限定名。比如：
+```c
+Color c = Red;
+```
+其他的场景也有类似的情况。比如，使用{}表示链接规格。
+```c
+extern "C" {
+  void f(int);
+  void g(int);
+}
+// f and g are visible here
+```
+为了保持代码级的准确性，我们把链接规格和枚举类型按照包含了各自声明（Red, Green, Blue和f ,g）的声明上下文处理。但是，这些声明都在该上下文的外部作用域可见。  
+这些语言特性（包括下面提到的其他的），有类似的要求：声明在相应的词法上下文中，但是在外部作用域进行名字查找时也要能找到。这个特性通过透明声明上下文实现（参考DeclContext::isTransparentContext()），这类上下文中的声明在在其紧邻的最近一个非透明的上下文中可见。这就是说，这类声明的词法和语义上下文都是其自身，但是这类声明则会在外层中直到第一个非透明的上下文中都可见。    
+透明上下文包括：
+- 枚举（不包括C++11的限定作用域枚举）
+```
+enum Color {
+  Red,
+  Green,
+  Blue
+};
+// Red, Green, and Blue are in scope
+```
+- C++链接规格
+```
+extern "C" {
+  void f(int);
+  void g(int);
+}
+// f and g are in scope
+```
+- 匿名union和struct
+```
+struct LookupTable {
+  bool IsVector;
+  union {
+    std::vector<Item> *Vector;
+    std::set<Item> *Set;
+  };
+};
+LookupTable LT;
+LT.Vector = 0; // Okay: finds Vector inside the unnamed union
+```
+- C++11 inline namespace
+```
+namespace mylib {
+  inline namespace debug {
+    class X;
+  }
+}
+mylib::X *xp; // okay: mylib::X refers to mylib::debug::X
+```
+### 多段定义声明上下文
+C++的命名空间有个比较有意思的属性：多次定义，各段定义的声明在效果上会最终合并起来（从语义角度看）比如，下面两段代码是等价的。
 
 

@@ -1,5 +1,5 @@
 
-root: ./
+root: ./clang-cfe-internals-manual
 
 structure:
     readme: README.md

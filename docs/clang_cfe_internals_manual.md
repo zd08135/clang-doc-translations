@@ -1,3 +1,4 @@
+
 # 基本说明
 
 ## 源码地址
@@ -31,25 +32,25 @@ TODO: **未来可能会按照clang版本形式，将本文档也划分成不同�
 
 本文的开发调试主要基于Linux平台(Ubuntu/Fedora/CentOS）
 
-# 正文
+# （以下为正文）
 
-## 介绍
+# 介绍
 
 本文档描述了clang前端中，一些重要API以及内部设计，旨在让读者可以既可以掌握一些高层次的信息，也可以了解背后的一些设计思路。
 本文的更针对探索clang内部原理的读者，而不是一般的使用者。下面的描述根据不同的库进行组织，但是并不会描述客户端如何使用它们。
 
-## LLVM支持库
+# LLVM支持库
 
 LLVM支持库libSupport提供了一些底层库和数据结构，包括命令行处理、不同的container以及用于文件系统访问的系统抽象层。
 
-## Clang的基础库
+# Clang的基础库
 
 这一部分库的名字可能要起得更好一点。这些“基础”库包括：追踪、操作源码buffer和包含的位置信息、诊断、符号、目标平台抽象、以及语言子集的偏基础类的util逻辑。  
 部分架构只针对C语言生效（比如TargetInfo），其他部分（比如SourceLocation, SourceManager, Diagnostics,
 FileManager）可以用于非C的其他语言。可能未来会引入一个新的库、把这些通用的类移走、或者引入新的方案。  
 下面会根据依赖关系，按顺序描述基础库的各个类。
 
-### 诊断子系统
+## 诊断子系统
 
 Clang诊断子系统是编译器和用户交互的重要部分。诊断主要指代码错误，或者不太可信的情况下，编译器生成的警告和错误。在Clang中，每个诊断信息包括：
 唯一id、对应的英文翻译、sourcelocation信息（用来展示^），严重级别（警告或者错误）。除此之外，还包括可选的一系列参数和代码段信息。  
@@ -63,7 +64,7 @@ P = (P-42) + Gamma*4;
 上面这个例子中，可以看到英文翻译、严重级别，源码位置（^号和文件/行/列信息），诊断的参数、代码片段。当然你也知道内部还有个id（笑）  
 让这些内容产生需要若干步骤，涉及到很多移动的分片。本节中会描述这些步骤、分片，也会说明增加新诊断信息的一些最佳实践。  
 
-#### The Diagnostic*Kinds.td files
+### The Diagnostic*Kinds.td files
 根据需要使用的库，在clang/base/Diagnostic*Kinds.td相应文件中增加一个入口点就可以创建诊断。tblgen会根据文件创建唯一id，严重级别，英文翻译，格式化字符串等。  
 这个唯一id在命名上也包含一些信息。有的id以err_，warn_，ext_开头，将严重级别列入到id里面。这些严重级别的枚举与产生相应诊断的C++代码关联，所以这个级别简化有一点意义。   
 诊断的严重级别包括这些：{NOTE, REMARK, WARNING, EXTENSION, EXTWARN, ERROR}。ERROR这个诊断说明，代码在任何情况下都是不能被接受的；如果产生了一个error诊断，代码的AST可能都没有完全构建好。EXTENSION 和 EXTWARN 用于Clang可以兼容的语言扩展，也就是说，Clang仍然可以构建AST，但是诊断会提示说代码不是可移植的；EXTENSION 和 EXTWARN 的区别在于，默认情况下，前者是被忽略的，而后者会提示警告。WARNING说明，代码在语法规则下是合法的，但是可能有些地方会有二义性。REMARK则说明相应的代码没有产生二义性。NOTE的话，一般是对之前的诊断做补充（没有实际意义）。  
@@ -71,7 +72,7 @@ P = (P-42) + Gamma*4;
 诊断映射的应用场景很多。比如，-pedantic这个选项会使得EXTENSION映射到Warning, 如果指定了-pedantic-errors选项，EXTENSION就是Error了。这种机制可以实现类似-Wunused_macros, -Wundef 这样的选项。  
 映射Fatal一般只能用于过于严重，从而导致错误恢复机制也无法恢复的情况（然后带来成吨的错误）。比如说，#include文件失败。  
 
-#### 格式化字符串
+### 格式化字符串
 
 用于诊断的格式化字符串看起来简单，但是能力却很强大。格式化字符串主要的形式是一个英文字符串，包含了一些参数格式标记。比如
 ```
@@ -91,7 +92,7 @@ P = (P-42) + Gamma*4;
 - 如果要引用什么东西，用单引号  
 诊断不要用随机的字符串做参数：比如格式化字符串是“you have a problem with %0” 然后传参是“your argument”或者 “your return value” ；这么做不利于翻译诊断文本到其他语言（因为可能文本被翻译了，但是参数仍然是英文的）；C/C++的关键字，以及操作符这类的情况除外，不过也要注意pointer或者reference不是关键字。换句话说，你可以用代码中出现的所有的东西（变量名、类型、标记等）。使用select方法可以以很本地化的方式达到这样的目的，见下文。
 
-#### 格式化诊断参数
+### 格式化诊断参数
 参数是完全在内部定义的，来自不同的类别：整数、类型、名字、随机串等。根据参数类别不同，格式化方式也不同。这里给一下DiagnosticConsumer（#没理解）
 下面是Clang支持的参数格式化方式：
 
@@ -135,7 +136,7 @@ Example: "candidate found by name lookup is %q0"
 Class: NamedDecl *  
 Description: 这个格式符号表示输出该声明的完全限定名称，比如说，会输出std::vector而不是vector
 
-#### 产生诊断
+### 产生诊断
 在Diagnostic*Kinds.td文件中创建入口点之后，你需要编写代码来检测相应情况并且生成诊断。Clang中的几个组件（例如preprocessor, Sema等）提供了一个辅助函数"Diag"，这个函数会创建诊断并且传入参数、代码范围以及诊断相关的其他信息。  
 比如，下面这段代码产生了一个二元表达式相关的错误诊断。  
 ```
@@ -147,7 +148,7 @@ if (various things that are bad)
 这里展示了Diag方法的使用方式：接受一个location（SourceLocation对象）以及诊断的枚举值（来自Diagnostic*Kinds.td文件）。如果这个诊断需要参数，那么这些参数通过<<操作符指定：第一个参数就是%0，第二个是%1，以此类推。这个诊断接口支持指定多种类型的参数，包括整数的：int, unsigned int。字符串的const char*和std::string，用于名称的DeclarationName 和const IdentifierInfo * ，用于类型的QualType，等等。SourceRange对象也可以通过<<指定，不过并没有特定的顺序要求。  
 正如上面所示，添加诊断、生成诊断的流程很简洁直接。最困难的地方在于怎么准确的描述诊断要表达的内容，选择合适的词汇，并且提供正确的信息。好消息是，产生该诊断的调用，应该和诊断信息的格式化方式、以及渲染所用的语言（展示给用户的诊断自然语言）必须是完全独立的。
 
-#### “建议修改”提示
+### “建议修改”提示
 有些情形下，很明显能看出做一些小的修改就可以修正问题，编译器会生成相应的（建议修改）诊断。比如，语句后缺少分号；或者使用很容易被更现代的形式替代的废弃的语法。在这些情形下，Clang在生成诊断并且优雅恢复方面做了很多工作。  
 不过呢，对于修复方式很明显的情况，诊断可以直接表达成描述如何修改代码来修复问题的提示（引用方式是“建议修改”提示）。比如，添加缺失的分号或者用更好的方式重写废弃的结构。下面是一个C++前端的例子，用来警告右移操作符的含义在C++98与C++11中有变化。  
 ```
@@ -172,3 +173,35 @@ A<100 >> 2> *a;
   提示内容：Range所指定的代码段建议删除
 - FixItHint::CreateReplacement(Range, Code)  
   提示内容：Range所指定的代码段建议删除，并且由Code对应的字符串替代
+
+### DiagnosticConsumer接口    
+代码根据参数和其余的相关信息生成了诊断之后，会提交给Clang处理。前文描述，诊断机制会执行一些过滤，将严重级别映射到诊断level，然后（如果诊断没有映射成ignored的情况下）以诊断信息为参数，调用DiagnosticConsumer接口的某个实现。    
+实现接口的方式多种多样。比如，最普通的Clang的DiagnosticConsumer实现(类名是TextDiagnosticPrinter），就是把参数根据不同的格式化规则转成string，然后输出文件/行数/列数，该行的代码，代码段，以及^符号。当然这种行为并不是要求的。    
+另一个 DiagnosticConsumer 的实现是 TextDiagnosticBuffer 类，当Clang使用了-verify参数的时候会被调用。这个实现只会捕获并且记录诊断，然后比较生成的诊断信息和某个期望的列表是否一致。关于-verify的详细说明请参考Clang API文档的VerifyDiagnosticConsumer类。  
+这个接口还有很多其他的实现，所以我们更希望诊断可以接受表达能力比较强的结构化信息作为参数。比如，可以通过HTML输出来给declaration的符号名加上定位链接。也可以通过GUI的方式，点击展开typedef；实现这种方式时，需要将更重要、信息量更大的类型信息，而不是单纯的字符串作为参数传递给这个接口。  
+
+### Clang增加多语言翻译
+目前还不行。诊断的字符串需要用UTF-8字符集编码，调用的客户端在需要的情况下可以将翻译相应的。翻译的时候需要整个替换掉诊断中的格式化字符串。
+
+## SourceLocation和SourceManager类
+SourceLocation类用来描述代码在程序中的位置。重点信息如下：
+- sizeof(SourceLocation)越小越好，因为可能有大量的SourceLocation对象会嵌入AST节点内部，以及节点间传递。目前是32个bit
+- SourceLocation是一个简单类型值的对象（没有指针，依赖等复杂结构），这样就可以被高效率的拷贝。
+- SourceLocation可以描述任何一个输入文件的任何一个字节。包括在符号中间，空格，三字节的字符（比如utf8文本）等
+- 在处理相应位置的代码时，SourceLocation要标记当前的#include栈为active。比如说，如果某个SourceLocation对象对应了一个token，那么当词法分析解析这个token的时候，所有的active的#include栈集合都需要记录在这个SourceLocation对象中。这样就可以在诊断时输出#include栈了。
+- SourceLocation有能力描述宏的展开，不论是代码中的原始文本，还是最终的实例化内容。
+
+在实践中，SourceLocation常常和SourceManager配合来描述某个代码位置的两方面信息：拼写位置，展开位置。对于大部分的符号来说，这两个一致。不过需要展开宏（或者_pragma指令定义的符号）的地方，它们就分别用来描述这个符号本身的位置以及使用的位置（宏展开或者_pragma指令位置）
+
+## SourceRange和CharSourceRange
+Clang中，大部分的代码段都可以通过[first, last]区间表达，first和last分别指向代码段开头与结尾的符号。比如下面这段语句的SourceRange
+```
+x = foo + bar;
+^first    ^last
+```
+为了从这种表达转成基于字符的表达，last的位置需要调整成为指向token的结尾，调整可以通过Lexer::MeasureTokenLength() 或者 Lexer::getLocForEndOfToken()方法实现。极少情况下，我们需要字符级别的代码范围，这个时候可使用CharSourceRange类。
+
+# 驱动库
+
+clang驱动器和相应的库见这里
+

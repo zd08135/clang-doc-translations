@@ -35,6 +35,8 @@ SOFTWARE.
 
 # LLVM项目许可协议
 
+参考：<https://llvm.org/docs/DeveloperPolicy.html#copyright-license-and-patents>
+
 ```
 ==============================================================================
 The LLVM Project is under the Apache License v2.0 with LLVM Exceptions:

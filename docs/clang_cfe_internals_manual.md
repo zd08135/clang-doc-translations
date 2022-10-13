@@ -27,7 +27,9 @@ Date:   Wed Feb 3 17:38:49 2021 +0000
 ```
 ## 平台
 
-本文的中的附加内容需要实际开发运行的部分，相关的开发调试主要基于Linux平台(Ubuntu/Fedora/CentOS）
+本文的中的附加内容需要实际开发运行的部分，相关的开发调试主要基于Linux平台(Ubuntu/Fedora/CentOS）  
+推荐使用VSCode作为IDE开发：<https://code.visualstudio.com/>
+
 ## 备注
 
 
@@ -50,7 +52,7 @@ LLVM支持库libSupport提供了一些底层库和[数据结构](https://llvm.or
 # Clang的基础库
 
 这一部分库的名字可能要起得更好一点。这些“基础”库包括：追踪、操作源码buffer和包含的位置信息、诊断、符号、目标平台抽象、以及语言子集的偏基础类的util逻辑。  
-部分架构只针对C语言生效（比如<td bgcolor=gray>TargetInfo</td>），其他部分（比如SourceLocation, SourceManager, Diagnostics,
+部分架构只针对C语言生效（比如TargetInfo），其他部分（比如SourceLocation, SourceManager, Diagnostics,
 FileManager）可以用于非C的其他语言。可能未来会引入一个新的库、把这些通用的类移走、或者引入新的方案。  
 下面会根据依赖关系，按顺序描述基础库的各个类。
 
@@ -102,21 +104,23 @@ P = (P-42) + Gamma*4;
 
 
 "s"格式  
-Example: "requires %1 parameter%s1"  
-Class: Integers  
-Description: 这是个简单的整数格式化方式，主要用于生成英文的诊断信息。如果这个整数是1，什么都不输出；否则输出1。 这种方式可以让诊断内容更符合一些简单的语法，不用生成"requires %1 parameter(s)"这种粗放的表达。
+示例： "requires %1 parameter%s1"  
+所属类型： 整数   
+描述：这是个简单的整数格式化方式，主要用于生成英文的诊断信息。如果这个整数（%1位置的整数）是1，%s1那里什么都不输出；否则%s1那里输出1。 这种方式可以让诊断内容更符合一些简单的语法，不用生成"requires %1 parameter(s)"这种不太优雅的表达。
 
-“select” format  
-Example: "must be a %select{unary|binary|unary or binary}2 operator"  
-Class: Integers  Description: 这个格式可以把几个相关的诊断合并成1个，不需要把这些诊断的diff用单独的参数替代。不同于指定参数为字符串，这个诊断输入整数参数，格式化字符串根据参数选择对应的选项。本例中，%2参数必须是[0..2]范围的整数。如果%2是0，那么这里就是unary，1的话就是binary，2的话就是“unary or binary”。这使得翻译成其他语言时，可以根据语法填入更有意义的词汇或者整条短语，而不是通过文本的操作处理。select格式的string会在内部进行格式化。
+“select” 格式  
+示例: "must be a %select{unary|binary|unary or binary}2 operator"  
+所属类型：整数  
+描述：这个格式可以把几个相关的诊断合并成1个，不需要把这些诊断的diff用单独的参数替代。不同于指定参数为字符串，这个诊断输入整数参数，格式化字符串根据参数选择对应的选项。本例中，%2参数必须是[0..2]范围的整数。如果%2是0，那么这里就是unary，1的话就是binary，2的话就是“unary or binary”。这使得翻译成其他语言时，可以根据语法填入更有意义的词汇或者整条短语，而不需要通过文本的操作处理。被选到的字符串会在内部进行格式化。
 
-“plural” format  
-Example: "you have %1 %plural{1:mouse|:mice}1 connected to your computer"  
-Class: Integers  
-Description: 	这个格式适用于比较复杂的英文的复数形式。这个格式的设计目的是处理对复数格式有一定要求的语言，比如波罗的海一些国家的语言。这个参数包含一系列的<expression:form>的键值对，通过:分隔。从左到右第一个满足expression为真的，其form作为结果输出。 	expression可以没有任何内容，这种情况下永远为真，比如上面的示例（中的mice）。除此之外，这个是若干个数字的condition组成的序列，condition之间由,分隔。condition之间是或的关系，满足任意一个condition就满足整个expression。每个数字condition有下面几种形式： 
-- 单个数字：参数和该数字相等时满足condition，示例"%plural{1:mouse|:mice}4" 
-- 区间。由[]括起来的闭区间，参数在该区间时满足condition，示例"%plural{0:none|1:one|[2,5]:some|:many}2" 
-- 取模。取模符号% + 数字 + 等于号 + 数字/范围。参数取模计算后满足等于数字/在区间内则满足condition，示例"%plural{%100=0:even hundred|%100=[1,50]:lower half|:everything else}1" 
+“plural” 格式  
+示例："you have %1 %plural{1:mouse|:mice}1 connected to your computer"  
+所属类型: 整数  
+描述：这个格式适用于比较复杂的英文的复数形式。这个格式的设计目的是处理对复数格式有一定要求的语言，比如波罗的海一些国家的语言。这个参数包含一系列的expression/form的键值对，通过:分隔。从左到右第一个满足expression为true的，作为结果输出。  
+expression可以没有任何内容，这种情况下永远为真，比如这里的示例（:mice）。除此之外，这个是若干个数字的condition组成的序列，condition之间由,分隔。condition之间是或的关系，满足任意一个condition就满足整个expression。每个数字condition有下面几种形式：  
+- 单个数字：参数和该数字相等时满足condition，示例："%plural{1:mouse|:mice}4" 
+- 区间。由[]括起来的闭区间，参数在该区间范围内时满足condition，示例："%plural{0:none|1:one|[2,5]:some|:many}2" 
+- 取模。取模符号% + 数字 + 等于号 + 数字/范围。参数取模计算后满足等于数字/在区间内则满足condition，示例："%plural{%100=0:even hundred|%100=[1,50]:lower half|:everything else}1" 
 
 这个格式的Parser很严格。只要有语法错误，即便多了个空格，都会导致parse失败，不论什么expression都无法匹配。
 
@@ -127,7 +131,7 @@ Description: 这个格式把数字转换成“序数词”。1->1st，3->3rd，�
 
 “objcclass” format  
 Example: "method %objcclass0 not found"  
-Class: DeclarationName  
+Class: 声明名字  
 Description: （object-c专用，后面翻译） This is a simple formatter that indicates the DeclarationName corresponds to an Objective-C class method selector. As such, it prints the selector with a leading “+”.
 
 “objcinstance” format  

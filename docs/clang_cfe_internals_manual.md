@@ -124,7 +124,7 @@ expression可以没有任何内容，这种情况下永远为真，比如这里�
 
 这个格式的Parser很严格。只要有语法错误，即便多了个空格，都会导致parse失败，不论什么expression都无法匹配。
 
-“ordinal” format  
+“ordinal” 格式  
 Example: "ambiguity in %ordinal0 argument"  
 Class: Integers  
 Description: 这个格式把数字转换成“序数词”。1->1st，3->3rd，只支持大于1的整数。 这个格式目前是硬编码的英文序数词。
@@ -143,6 +143,29 @@ Description: （object-c专用，后面翻译） This is a simple formatter that
 Example: "candidate found by name lookup is %q0"  
 Class: NamedDecl *  
 Description: 这个格式符号表示输出该声明的完全限定名称，比如说，会输出std::vector而不是vector
+
+“diff” format  
+Example: "no known conversion %diff{from $ to $|from argument type to parameter type}1,2"  
+Class: QualType  
+Description: 这个格式符以两个QualType为参数，尝试输出两者的模板的区别。如果关闭了输出树，那么就会输出{}括号内部|符号之前的部分，输出时\$符号被替换。如果开启了树输出，那么输出括号内|符号之后的部分，并且在此消息之后会输出类型树。  
+
+给Clang诊断系统加入新的格式符很容易，但是添加之前需要讨论一下其必要性。如果需要创建大量重复的诊断信息，（并且/或者）有创建新的用的上的格式符的想法，请发到cfe-dev邮件列表里面。  
+
+“sub” format  
+Example: 下面的TextSubstitution类型的记录定义:
+```
+def select_ovl_candidate : TextSubstitution<
+  "%select{function|constructor}0%select{| template| %2}1">;
+```
+可以被用到  
+```
+def note_ovl_candidate : Note<
+  "candidate %sub{select_ovl_candidate}3,2,1 not viable">;
+```
+这种写法和直接使用"candidate %select{function|constructor}3%select{| template| %1}2 not viable"是等效的。  
+ 
+Description: 这个格式符可以避免在大量的诊断中进行逐字重复。%sub的参数必须是TextSubstitution表生成记录。其实例化时需要指定所有用到的参数，The substitution must specify all arguments used by the substitution, and the modifier indexes in the substitution are re-numbered accordingly. The substituted text must itself be a valid format string before substitution.  
+
 
 ### 产生诊断
 在Diagnostic*Kinds.td文件中创建入口点之后，你需要编写代码来检测相应情况并且生成诊断。Clang中的几个组件（例如preprocessor, Sema等）提供了一个辅助函数"Diag"，这个函数会创建诊断并且传入参数、代码范围以及诊断相关的其他信息。  

@@ -4,13 +4,13 @@
 ## 源码地址
 
 参考llvm github:  
-https://github.com/llvm/llvm-project.git  
-https://gitee.com/mirrors/LLVM.git  （github地址的国内镜像，每日同步）  
+<https://github.com/llvm/llvm-project.git>  
+<https://gitee.com/mirrors/LLVM.git>  （github地址的国内镜像，每日同步）  
 
 ## 版本选择
 
 基于clang11版本文档翻译  
-https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html
+<https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html>
 
 选择11.0版本的代码，具体版本如下：
 
@@ -25,12 +25,15 @@ Date:   Wed Feb 3 17:38:49 2021 +0000
 
     Differential Revision: https://reviews.llvm.org/D95683
 ```
-
-TODO: **未来可能会按照clang版本形式，将本文档也划分成不同版本**
-
 ## 平台
 
-本文的开发调试主要基于Linux平台(Ubuntu/Fedora/CentOS）
+本文的中的附加内容需要实际开发运行的部分，相关的开发调试主要基于Linux平台(Ubuntu/Fedora/CentOS）
+## 备注
+
+
+TODO: **未来可能会按照clang版本形式，将本文档也划分成不同版本**  
+FIXME: **文中出现的其他链接，部分会链接到llvm docs的原始网站，如果未来对应文档也有翻译的话，会同步修正为内部的链接。**
+
 
 ---------------
 # ---以下为正文---
@@ -38,16 +41,16 @@ TODO: **未来可能会按照clang版本形式，将本文档也划分成不同�
 # 介绍
 
 本文档描述了clang前端中，一些重要API以及内部设计，旨在让读者可以既可以掌握一些高层次的信息，也可以了解背后的一些设计思路。
-本文的更针对探索clang内部原理的读者，而不是一般的使用者。下面的描述根据不同的库进行组织，但是并不会描述客户端如何使用它们。
+本文更针对探索clang内部原理的读者，而不是一般的使用者。下面的描述根据库的分类进行组织，但是并不会描述客户端如何使用它们。
 
 # LLVM支持库
 
-LLVM支持库libSupport提供了一些底层库和数据结构，包括命令行处理、不同的container以及用于文件系统访问的系统抽象层。
+LLVM支持库libSupport提供了一些底层库和[数据结构](https://llvm.org/docs/ProgrammersManual.html)，包括命令行处理、不同的container以及用于文件系统访问的系统抽象层。
 
 # Clang的基础库
 
 这一部分库的名字可能要起得更好一点。这些“基础”库包括：追踪、操作源码buffer和包含的位置信息、诊断、符号、目标平台抽象、以及语言子集的偏基础类的util逻辑。  
-部分架构只针对C语言生效（比如TargetInfo），其他部分（比如SourceLocation, SourceManager, Diagnostics,
+部分架构只针对C语言生效（比如<td bgcolor=gray>TargetInfo</td>），其他部分（比如SourceLocation, SourceManager, Diagnostics,
 FileManager）可以用于非C的其他语言。可能未来会引入一个新的库、把这些通用的类移走、或者引入新的方案。  
 下面会根据依赖关系，按顺序描述基础库的各个类。
 
@@ -622,7 +625,7 @@ A   // Set an error to A
 
 #### ExternalASTSource
 ExternalASTSource是和ASTContext关联的抽象接口。它提供了通过迭代或者名字查找来访问声明上下文中的声明的能力。依赖外部AST的声明上下文需要按需加载其声明信息。这就说明（在未加载时）声明的列表（保存在链表中，头是DeclContext::FirstDecl）可能是空的，不过类似DeclContext::lookup()的成员函数可能会初始化加载流程。  
-一般来讲，外部源代码是和预编译头文件相关的。比如，如果从预编译头文件中加载一个类，那么该类的成员只有在需要在该类的上下文中进行查找时才会被加载。
+一般来讲，外部源代码是和预编译头文件相关的。比如，如果从预编译头文件中加载一个类，那么该类的成员只有在需要在该类的上下文中进行查找时才会被加载。  
 考虑LLDB的情况，一个ExternalASTSource接口的实现类，是和对应表达式所在的AST上下文相关联的。这个实现是通过ASTImporter被发现的。通过这种方式，LLDB可以复用Clang的分析机制来从调试数据（比如DWARF，调试信息存储格式）中合成底层的AST。从ASTImporter的角度看，这意味着源和目标上下文中，可能包含存储了外部词法信息的声明上下文。如果目标上下文中的DeclContext对象包含了外部词法信息的存储，就必须特殊处理已经被加载的声明信息。否则，导入过程会变得不可控。比如，使用常规的DeclContext::lookup()在目标上下文中查找存在的声明，在导入声明的过程中，lookup方法会出现递归调用从而导致出现新的导入操作。（在初始化一个尚未注册的查找时，已经开始从源上下文中导入了）所以这里需要用DeclContext::noload_lookup()来代替。
 
 ### 类模板的实例化
@@ -668,7 +671,7 @@ CFG类被设计用来表达一个语句的代码级的控制流图。CFG比较�
 
 ### 入口/出口语句块
 每个CFG包含两个特殊的块：入口块（通过CFG::getEntry()）访问，没有边指向该块；以及出口块，（通过 CFG::getExit()访问），没有边从该块指出。这两个块不包含语句，其作用是指明一段实体代码的入口和出口，比如函数体。这些空块的存在简化了从CFG顶层进行分析的实现。  
-条件控制流
+### 条件控制流
 条件控制流（比如if语句和循环）通过CFGBlock之间的边来表达。因为不同的C系语言的构建也会引发控制流，每个CFGBlock也记录了额外的Stmt*来指明该块的结束符。一个结束符就是导致控制流的语句，可以用来确定块之间的控制流的流转方式。比如，if-statement这类语句，其结束符就是表达指定分支的IfStmt。
 为了说明这一情况，考虑如下代码：
 ```c
@@ -762,7 +765,7 @@ B4的结束符是指向AST中IfStmt语句的指针。输出if[B4,2]的原因是�
 ### 属性的基础信息
 Clang中，属性在如下三个时机中处理：进行语法分析时，从语法属性转换成语义属性时，语义分析阶段处理该属性时。
 属性的语法分析过程由不同的属性对应的句法决定，比如GNU, C++11, 微软各自风格的属性；也包括属性的表定义中所提供的信息。属性对象进行语法分析的最终结果，是一个ParsedAttr类的对象。这些转换后的属性链成一串，附加在声明上。除了关键字属性之外，属性的语法分析由Clang自动进行。当实现属性时，关键字的转换和对应ParsedAttr对象的创建必须手动处理。  
-最终，在语法分析属性可以转换成语义分析属性时，会以Decl和ParsedAttr作为参数调用Sema::ProcessDeclAttributeList()方法。语法属性转换成语义属性这个流程依赖于属性的定义和语义要求。转换结果的是一个挂在该Decl上的语义属性对象，可以通过Decl::getAttr<T>()获取。
+最终，在语法分析属性可以转换成语义分析属性时，会以Decl和ParsedAttr作为参数调用Sema::ProcessDeclAttributeList()方法。语法属性转换成语义属性这个流程依赖于属性的定义和语义要求。转换结果的是一个挂在该Decl上的语义属性对象，可以通过Decl::getAttr\<T\>()获取。
 语义属性的结果也通过Attr.td中的属性定义管理。这个定义用于自动生成实现该属性功能的代码，比如clang::Attr的子类，用于语法分析的信息，部分属性的语义检查等。
 ### include/clang/Basic/Attr.td
 为Clang添加新属性的第一步是在include/clang/Basic/Attr.td中添加其定义。这个表生成定义必须继承Attr（表生成，而非语义的）的定义，或者一个或多个其继承者。大部分属性都是继承自InheritableAttr类型，这个类型说明该属性可以被其关联的Decl的二次声明继承。InheritableParamAttr和InheritableAttr类似，不同点在于InheritableParamAttr是作用于参数的。如果某个属性是类型相关的，那么需要继承的类型是TypeAttr，并且也不会生成对应的AST内容。（注意，本文档不涵盖类型属性创建的内容）。一个属性继承IgnoredAttr的话，那么整个属性会被分析，但是只会生成一个忽略的属性诊断，这种场景可以应用于非Clang编译器的需求。  

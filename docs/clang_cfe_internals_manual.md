@@ -899,7 +899,7 @@ LangOpts字段指定该属性的一系列语言选项。比如，CUDA相关的�
 ### 样板代码
 所有针对声明属性的语义处理代码都在lib/Sema/SemaDeclAttr.cpp中，一般都是从ProcessDeclAttribute()函数开始的。如果属性的SimpleHandler标记位为1，那么该属性的处理逻辑是自动生成的，开发者不需要做什么；否则（SimpleHandler != 1），就需要编写新的handleYourAttr()函数，并且放到switch语句中。注意不要直接在switch语句的case中去写实现逻辑。  
 在属性定义没有特别指明的情况下，针对语法转换后属性的公共语义检查是自动处理的。公共语义检查包括诊断语法属性是否和对应的Decl节点关联，保证传递的参数个数满足要求的最小值等。  
-如果属性添加附加的告警信息，可以在include/clang/Basic/DiagnosticGroups.td中，该属性的拼写之后定义一个DiagGroup，其中的"_"要替换成"_"。如果诊断只有一个，那么直接在DiagnosticSemaKinds.td用InGroup<DiagGroup<"your-attribute">>方式定义也是可以的。  
+如果属性添加附加的告警信息，可以在include/clang/Basic/DiagnosticGroups.td中，该属性的拼写之后定义一个DiagGroup，其中的"\_"要替换成"-"。如果诊断只有一个，那么直接在DiagnosticSemaKinds.td用InGroup<DiagGroup<"your-attribute">>方式定义也是可以的。  
 所有针对新属性的语义诊断，包括自动生成的那些（比如主语和参数个数）都需要有对应的测试用例。  
 
 ### 语义处理

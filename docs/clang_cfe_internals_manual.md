@@ -32,9 +32,14 @@ Date:   Wed Feb 3 17:38:49 2021 +0000
 
 ## 备注
 
+本文中的引用是本人自己添加的，不是原文的翻译。
+> 这段文字是我添加的内容
+> ```
+> 这段代码是我添加的内容
+> ```
 
 TODO: **未来可能会按照clang版本形式，将本文档也划分成不同版本**  
-FIXME: **文中出现的其他链接，部分会链接到llvm docs的原始网站，如果未来对应文档也有翻译的话，会同步修正为内部的链接。**
+FIXME: **文中出现的其他链接，部分会链接到llvm docs的原始网站，如果未来对应文档也有翻译的话，会同步修正为本书内部的链接。**
 
 
 ---------------
@@ -164,11 +169,23 @@ def note_ovl_candidate : Note<
 ```
 这种写法和直接使用"candidate %select{function|constructor}3%select{| template| %1}2 not viable"是等效的。  
  
-Description: 这个格式符可以避免在大量的诊断中进行逐字重复。%sub的参数必须是TextSubstitution表生成记录。其实例化时需要指定所有用到的参数，The substitution must specify all arguments used by the substitution, and the modifier indexes in the substitution are re-numbered accordingly. The substituted text must itself be a valid format string before substitution.  
+Description: 这个格式符可以避免在大量的诊断中进行逐字重复。%sub的参数必须是TextSubstitution表生成记录。其实例化时需要指定所有用到的参数，在实例化时，后面的下标会按照顺序重新排列。注意，这个用于实例化的字符串本身在未实例化格式必须是合法的。  
+
+> "sub"格式稍微解释一下。  
+> "sub"这里可以认为是"substitution"的缩写，主要作用是支持诊断信息内部的二次实例化  
+> 这里是一个Clang提供的诊断，主要用于选择特定的成员：  
+> ```
+> def select_special_member_kind : TextSubstitution<
+>  "%select{default constructor|copy constructor|move constructor|"
+>  "copy assignment operator|move assignment operator|destructor}0">;
+> ```
+> 从这里看出来，这个诊断格式的作用是在类的构造函数和析构函数这些特殊成员中选一个，用于更外层的诊断。  
+> 如果不用sub，就必须把%select{....|destructor}这一长串内容在外层诊断中复制一份，这样诊断信息会很长很难维护。  
+> 而这个被选的成员，在外层诊断中，本身也可能以不同index的参数被使用，比如有的诊断可能让这个信息在第1个位置，有的则是第3个，所以需要sub的索引也要能按照外部调用需要重新排列。
 
 
 ### 产生诊断
-在Diagnostic*Kinds.td文件中创建入口点之后，你需要编写代码来检测相应情况并且生成诊断。Clang中的几个组件（例如preprocessor, Sema等）提供了一个辅助函数"Diag"，这个函数会创建诊断并且传入参数、代码范围以及诊断相关的其他信息。  
+在Diagnostic*Kinds.td文件中创建入口点之后，需要编写代码来检测相应情况并且生成诊断。Clang中的几个组件（例如preprocessor, `Sema`等）提供了一个辅助函数"`Diag`"，这个函数会创建诊断并且接受参数、代码范围以及诊断相关的其他信息作为参数。  
 比如，下面这段代码产生了一个二元表达式相关的错误诊断。  
 ```
 if (various things that are bad)
@@ -176,12 +193,12 @@ if (various things that are bad)
     << lex->getType() << rex->getType()
     << lex->getSourceRange() << rex->getSourceRange();
 ```
-这里展示了Diag方法的使用方式：接受一个location（SourceLocation对象）以及诊断的枚举值（来自Diagnostic*Kinds.td文件）。如果这个诊断需要参数，那么这些参数通过<<操作符指定：第一个参数就是%0，第二个是%1，以此类推。这个诊断接口支持指定多种类型的参数，包括整数的：int, unsigned int。字符串的const char*和std::string，用于名称的DeclarationName 和const IdentifierInfo * ，用于类型的QualType，等等。SourceRange对象也可以通过<<指定，不过并没有特定的顺序要求。  
-正如上面所示，添加诊断、生成诊断的流程很简洁直接。最困难的地方在于怎么准确的描述诊断要表达的内容，选择合适的词汇，并且提供正确的信息。好消息是，产生该诊断的调用，应该和诊断信息的格式化方式、以及渲染所用的语言（展示给用户的诊断自然语言）必须是完全独立的。
+这里展示了Diag方法的使用方式：接受一个location（SourceLocation对象）以及诊断的枚举值（来自Diagnostic\*Kinds.td文件）。如果这个诊断需要参数，那么这些参数通过<<操作符指定：第一个参数就是%0，第二个是%1，以此类推。这个诊断接口支持指定多种类型的参数，包括整数的：int, unsigned int。字符串的const char*和std::string，用于名称的`DeclarationName`和`const IdentifierInfo *`，用于类型的`QualType`，等等。`SourceRange`也可以通过<<指定，不过并没有特定的顺序要求。  
+正如上面所示，添加诊断、生成诊断的流程很简洁直接。最困难的地方在于怎么准确的向用户描述诊断要表达的内容，选择合适的词语组织，并且提供需要的信息来正确格式化。好消息是，产生该诊断的调用，应该和诊断信息的格式化方式、以及渲染所用的语言（展示给用户的诊断自然语言）必须是完全独立的。
 
 ### “建议修改”提示
-有些情形下，很明显能看出做一些小的修改就可以修正问题，编译器会生成相应的（建议修改）诊断。比如，语句后缺少分号；或者使用很容易被更现代的形式替代的废弃的语法。在这些情形下，Clang在生成诊断并且优雅恢复方面做了很多工作。  
-不过呢，对于修复方式很明显的情况，诊断可以直接表达成描述如何修改代码来修复问题的提示（引用方式是“建议修改”提示）。比如，添加缺失的分号或者用更好的方式重写废弃的结构。下面是一个C++前端的例子，用来警告右移操作符的含义在C++98与C++11中有变化。  
+有些情形下，如果可以明确看出，代码做一些小的修改就可以修正问题，编译器会抛出相应的（建议修改）诊断。比如，语句后缺少分号；或者使用很容易被现代形式改写的废弃的语法。在这些情形下，Clang在抛出诊断并且优雅恢复方面做了很多工作。  
+不过呢，对于修复方式很明显的情况，诊断可以直接表达成描述如何修改代码来修复问题的提示（一般被叫做“建议修改”提示）。比如，添加缺失的分号或者用更好的方式重写废弃的结构。下面是一个C++前端的例子，用来警告右移操作符的含义在C++98与C++11中有不同。  
 ```
 test.cpp:3:7: warning: use of right-shift operator ('>>') in template argument
               will require parentheses in C++11
@@ -189,15 +206,15 @@ A<100 >> 2> *a;
        ^
   (       )
 ```
-上文中的建议修改提示就是需要加上小括号，并且准确的指出了需要插入小括号的代码的位置。这个提示本身以一种抽象的方式描述了需要做的修改，这个方式是在^号下面加了一行，通过诊断的文本输出“插入”的行为。其他的诊断客户端（这里指会调用诊断接口的程序）可能会选择不同的方式来展示这个代码（比如说内嵌标记），甚至直接帮用户自动改掉。  
+上文中的建议修改提示就是需要加上小括号，并且准确的指出了需要插入小括号的代码的位置。这个提示本身以一种抽象的方式描述了需要做的修改，这里是在^号下面加了一行，通过诊断的文本输出“插入”的行为。其他的诊断客户端（这里指会调用诊断接口的程序）可能会选择不同的方式来展示这个代码（比如说内嵌标记），甚至直接帮用户自动改掉。  
 针对错误和警告的建议修改提示需要遵循这些规则：
-- 应用建议修改提示的方式是，将-Xclang -fixit参数传递给driver，所以这些建议只能在非常匹配用户的期望的时候才能使用。
+- 将`-Xclang -fixit`参数传递给driver的情况下，这些建议修改提示会自动应用，所以这些建议只能在非常匹配用户的期望的时候才能使用。
 - 如果应用了建议修改提示，那么Clang必须能从错误中恢复。
 - 针对警告的建议修改提示，不能改变代码的逻辑。不过提示可以用来明确用户的意图，比如建议在操作符优先级不太明显区分的情况下加上括号。
 
-如果某个建议不能遵从上面的规则，那么就把这个建议改成针对NOTE了，针对note的提示不会自动应用。
+如果某个建议不能遵从上面的规则，那么就把这个建议改成NOTE，针对note的提示不会自动应用。
 
-建议修改提示，通过FixItHint类进行描述；类对应的实例也需要和高亮代码段、参数一样，通过<<操作符传给诊断。创建一个提示对象有如下三个构造器：
+建议修改提示，通过`FixItHint`类进行描述；类对应的实例也需要和高亮代码段、参数一样，通过<<操作符传给诊断。创建一个提示对象有如下三个构造器：
 - FixItHint::CreateInsertion(Loc, Code)  
   提示内容：将指定的参数Code插入到Loc的对应代码位置前面。
 - FixItHint::CreateRemoval(Range)  
@@ -242,6 +259,11 @@ Clang支持预编译头文件（precompiled headers, [PCH](https://releases.llvm
 # 编译前端库
 编译前端库主要提供了基于Clang库构建工具（二次开发）的能力，比如一些输出诊断的方法。
 
+# 词法分析与预处理库
+
+词法分析库包含一些跟处理词法分析和预处理紧密相关的类，其主要接口是通过庞大的Preprocessor类提供。包含为了从TU中连贯地读取符号而需要的多种状态。
+Preprocess对象中的核心接口是Preprocessor::Lex方法，这个方法从预处理器的流中返回符号。预处理器可以通过如下两类解析器读取符号：词法解析的buffer（通过Lexer类）和符号流（通过TokenLexer）。
+
 ## Token类
 Token类用于表示一个单独的语法分析符号。Token对象的主要使用者为词法分析器、预处理器和语法分析器，但是生命周期不会高于他们（比方说，在AST中就没有Token对象了）  
 运行语法分析器时，Token对象大部分情况都是在栈上分配（或者其他读写访问效率高的地方），不过也偶尔会分配到独立的缓冲区里。比如，宏定义在存储上也是按照一个Token对象列表处理的，C++编译前端会周期性的将宏放进缓存来做初步的语法分析，以及一些需要预先查看（look ahead）的片段。正因为这些原因，Token的大小必须要考虑。在32位系统中，目前sizeof(Token)是16字节。  
@@ -271,8 +293,10 @@ Token有两种表现形式：annotation Token和普通Token。普通Token就是�
 2. tok::annot_cxxscope 这个符号代表一个C++的作用域标识，比如A::B::，对应C++语法规范中的::和:: [opt] nested-name-specifier。对应的AnnotationValue字段的内容是一个NestedNameSpecifier*类型的指针，由Sema::ActOnCXXGlobalScopeSpecifier 和Sema::ActOnCXXNestedNameSpecifier 回调获得。  
 3. tok::annot_template_id 这个符号代表一个C++的模板id，比如foo<int, 4>，foo是模板的名字。对应的AnnotationValue字段的内容是一个动态分配的TemplateIdAnnotation对象。根据上下文不同，一个描述类型的模板id在分析后会变成一个typename注释符号（如果关注的内容是类型本身，比如一个类型定义）或者保持现状，仍然是一个模板id注释符号（如果关注的内容是在对应的代码位置，比如一个声明）。模板id注释符号可以被语法分析器“升级”成一个typename注释符号。 
 
-如上所述，注释符号并非由预处理器返回，但是需要遵循语法分析器的格式要求。这意味着，语法分析器必须了解什么时候注释需要出现并且以合适的格式生成之。这某种程度上和语法分析器处理C99规范：Translation Phase 6 of C99: String Concatenation (see C99 5.1.1.2)（C99 5.1.1.2 第6条内容： Adjacent string literal tokens are concatenated，相邻的字符串常量token需要连到一起）的方式类似。处理字符串连接的时候，预处理器就区分tok::string_literal和tok::wide_string_literal两种符号，然后语法分析器将后面跟着的一串语法格式符合字符串常量的全部纳入解析。  
+如上所述，注释符号并非由预处理器返回，但是需要遵循语法分析器的格式要求。这意味着，语法分析器必须了解什么时候注释需要出现并且以合适的格式生成之。这某种程度上和语法分析器处理C99规范：Translation Phase 6 of C99: String Concatenation (see C99 5.1.1.2)的方式类似。处理字符串连接的时候，预处理器就区分tok::string_literal和tok::wide_string_literal两种符号，然后语法分析器将后面跟着的一串语法格式符合字符串常量的全部纳入解析。  
 为了达到这一目标，只要parser解析到需要tok::identifier或者tok::coloncolon的时候，它就调用TryAnnotateTypeOrScopeToken或者 TryAnnotateCXXScopeToken来生成这个token。这些方法会尽可能在允许的时候，生成注释符号并替代当前符号。如果当前的符号不能用于生成注释符号，就保留为一个标识符或者::符号。  
+
+> （C99 5.1.1.2 第6条内容： Adjacent string literal tokens are concatenated，相邻的字符串常量token需要连到一起，比如`"a" "b" "c"`解析时需要按照`"abc"`处理）
 
 ## Lexer类
 Lexer类提供了从源码buffer中进行词法分析获取符号并确认其含义的机制。Lexer的实现很复杂，因为它必须处理并没有进行拼写消除的原始buffer（在使用了拼写消除的基础上可以获得比较好的性能），但是反过来需要特别小心的编码，同时也要在性能上满足一定的标准（比如，处理注释的代码在x86和powerpc主机上就使用了向量指令）

@@ -4,13 +4,13 @@
 ## 源码地址
 
 参考llvm github:  
-https://github.com/llvm/llvm-project.git  
-https://gitee.com/mirrors/LLVM.git  （github地址的国内镜像，每日同步）  
+<https://github.com/llvm/llvm-project.git>  
+<https://gitee.com/mirrors/LLVM.git>  （github地址的国内镜像，每日同步）  
 
 ## 版本选择
 
 基于clang11版本文档翻译  
-https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html
+<https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html>
 
 选择11.0版本的代码，具体版本如下：
 
@@ -25,12 +25,17 @@ Date:   Wed Feb 3 17:38:49 2021 +0000
 
     Differential Revision: https://reviews.llvm.org/D95683
 ```
-
-TODO: **未来可能会按照clang版本形式，将本文档也划分成不同版本**
-
 ## 平台
 
-本文的开发调试主要基于Linux平台(Ubuntu/Fedora/CentOS）
+本文的中的附加内容需要实际开发运行的部分，相关的开发调试主要基于Linux平台(Ubuntu/Fedora/CentOS）  
+推荐使用VSCode作为IDE开发：<https://code.visualstudio.com/>
+
+## 备注
+
+
+TODO: **未来可能会按照clang版本形式，将本文档也划分成不同版本**  
+FIXME: **文中出现的其他链接，部分会链接到llvm docs的原始网站，如果未来对应文档也有翻译的话，会同步修正为内部的链接。**
+
 
 ---------------
 # ---以下为正文---
@@ -38,17 +43,17 @@ TODO: **未来可能会按照clang版本形式，将本文档也划分成不同�
 # 介绍
 
 本文档描述了clang前端中，一些重要API以及内部设计，旨在让读者可以既可以掌握一些高层次的信息，也可以了解背后的一些设计思路。
-本文的更针对探索clang内部原理的读者，而不是一般的使用者。下面的描述根据不同的库进行组织，但是并不会描述客户端如何使用它们。
+本文更针对探索clang内部原理的读者，而不是一般的使用者。下面的描述根据库的分类进行组织，但是并不会描述客户端如何使用它们。
 
 # LLVM支持库
 
-LLVM支持库libSupport提供了一些底层库和数据结构，包括命令行处理、不同的container以及用于文件系统访问的系统抽象层。
+LLVM支持库libSupport提供了一些底层库和[数据结构](https://llvm.org/docs/ProgrammersManual.html)，包括命令行处理、不同的container以及用于文件系统访问的系统抽象层。
 
 # Clang的基础库
 
 这一部分库的名字可能要起得更好一点。这些“基础”库包括：追踪、操作源码buffer和包含的位置信息、诊断、符号、目标平台抽象、以及语言子集的偏基础类的util逻辑。  
-部分架构只针对C语言生效（比如TargetInfo），其他部分（比如SourceLocation, SourceManager, Diagnostics,
-FileManager）可以用于非C的其他语言。可能未来会引入一个新的库、把这些通用的类移走、或者引入新的方案。  
+部分架构只针对C语言生效（比如`TargetInfo`），其他部分（比如`SourceLocation`, `SourceManager`, `Diagnostics`,
+`FileManager`）可以用于非C的其他语言。可能未来会引入一个新的库、把这些通用的类移走、或者引入新的方案。  
 下面会根据依赖关系，按顺序描述基础库的各个类。
 
 ## 诊断子系统
@@ -99,32 +104,34 @@ P = (P-42) + Gamma*4;
 
 
 "s"格式  
-Example: "requires %1 parameter%s1"  
-Class: Integers  
-Description: 这是个简单的整数格式化方式，主要用于生成英文的诊断信息。如果这个整数是1，什么都不输出；否则输出1。 这种方式可以让诊断内容更符合一些简单的语法，不用生成"requires %1 parameter(s)"这种粗放的表达。
+示例： "requires %1 parameter%s1"  
+所属类型： 整数   
+描述：这是个简单的整数格式化方式，主要用于生成英文的诊断信息。如果这个整数（%1位置的整数）是1，%s1那里什么都不输出；否则%s1那里输出1。 这种方式可以让诊断内容更符合一些简单的语法，不用生成"requires %1 parameter(s)"这种不太优雅的表达。
 
-“select” format  
-Example: "must be a %select{unary|binary|unary or binary}2 operator"  
-Class: Integers  Description: 这个格式可以把几个相关的诊断合并成1个，不需要把这些诊断的diff用单独的参数替代。不同于指定参数为字符串，这个诊断输入整数参数，格式化字符串根据参数选择对应的选项。本例中，%2参数必须是[0..2]范围的整数。如果%2是0，那么这里就是unary，1的话就是binary，2的话就是“unary or binary”。这使得翻译成其他语言时，可以根据语法填入更有意义的词汇或者整条短语，而不是通过文本的操作处理。select格式的string会在内部进行格式化。
+“select” 格式  
+示例: "must be a %select{unary|binary|unary or binary}2 operator"  
+所属类型：整数  
+描述：这个格式可以把几个相关的诊断合并成1个，不需要把这些诊断的diff用单独的参数替代。不同于指定参数为字符串，这个诊断输入整数参数，格式化字符串根据参数选择对应的选项。本例中，%2参数必须是[0..2]范围的整数。如果%2是0，那么这里就是unary，1的话就是binary，2的话就是“unary or binary”。这使得翻译成其他语言时，可以根据语法填入更有意义的词汇或者整条短语，而不需要通过文本的操作处理。被选到的字符串会在内部进行格式化。
 
-“plural” format  
-Example: "you have %1 %plural{1:mouse|:mice}1 connected to your computer"  
-Class: Integers  
-Description: 	这个格式适用于比较复杂的英文的复数形式。这个格式的设计目的是处理对复数格式有一定要求的语言，比如波罗的海一些国家的语言。这个参数包含一系列的<expression:form>的键值对，通过:分隔。从左到右第一个满足expression为真的，其form作为结果输出。 	expression可以没有任何内容，这种情况下永远为真，比如上面的示例（中的mice）。除此之外，这个是若干个数字的condition组成的序列，condition之间由,分隔。condition之间是或的关系，满足任意一个condition就满足整个expression。每个数字condition有下面几种形式： 
-- 单个数字：参数和该数字相等时满足condition，示例"%plural{1:mouse|:mice}4" 
-- 区间。由[]括起来的闭区间，参数在该区间时满足condition，示例"%plural{0:none|1:one|[2,5]:some|:many}2" 
-- 取模。取模符号% + 数字 + 等于号 + 数字/范围。参数取模计算后满足等于数字/在区间内则满足condition，示例"%plural{%100=0:even hundred|%100=[1,50]:lower half|:everything else}1" 
+“plural” 格式  
+示例："you have %1 %plural{1:mouse|:mice}1 connected to your computer"  
+所属类型: 整数  
+描述：这个格式适用于比较复杂的英文的复数形式。这个格式的设计目的是处理对复数格式有一定要求的语言，比如波罗的海一些国家的语言。这个参数包含一系列的expression/form的键值对，通过:分隔。从左到右第一个满足expression为true的，作为结果输出。  
+expression可以没有任何内容，这种情况下永远为真，比如这里的示例（:mice）。除此之外，这个是若干个数字的condition组成的序列，condition之间由,分隔。condition之间是或的关系，满足任意一个condition就满足整个expression。每个数字condition有下面几种形式：  
+- 单个数字：参数和该数字相等时满足condition，示例："%plural{1:mouse|:mice}4" 
+- 区间。由[]括起来的闭区间，参数在该区间范围内时满足condition，示例："%plural{0:none|1:one|[2,5]:some|:many}2" 
+- 取模。取模符号% + 数字 + 等于号 + 数字/范围。参数取模计算后满足等于数字/在区间内则满足condition，示例："%plural{%100=0:even hundred|%100=[1,50]:lower half|:everything else}1" 
 
 这个格式的Parser很严格。只要有语法错误，即便多了个空格，都会导致parse失败，不论什么expression都无法匹配。
 
-“ordinal” format  
+“ordinal” 格式  
 Example: "ambiguity in %ordinal0 argument"  
 Class: Integers  
 Description: 这个格式把数字转换成“序数词”。1->1st，3->3rd，只支持大于1的整数。 这个格式目前是硬编码的英文序数词。
 
 “objcclass” format  
 Example: "method %objcclass0 not found"  
-Class: DeclarationName  
+Class: 声明名字  
 Description: （object-c专用，后面翻译） This is a simple formatter that indicates the DeclarationName corresponds to an Objective-C class method selector. As such, it prints the selector with a leading “+”.
 
 “objcinstance” format  
@@ -136,6 +143,29 @@ Description: （object-c专用，后面翻译） This is a simple formatter that
 Example: "candidate found by name lookup is %q0"  
 Class: NamedDecl *  
 Description: 这个格式符号表示输出该声明的完全限定名称，比如说，会输出std::vector而不是vector
+
+“diff” format  
+Example: "no known conversion %diff{from $ to $|from argument type to parameter type}1,2"  
+Class: QualType  
+Description: 这个格式符以两个QualType为参数，尝试输出两者的模板的区别。如果关闭了输出树，那么就会输出{}括号内部|符号之前的部分，输出时\$符号被替换。如果开启了树输出，那么输出括号内|符号之后的部分，并且在此消息之后会输出类型树。  
+
+给Clang诊断系统加入新的格式符很容易，但是添加之前需要讨论一下其必要性。如果需要创建大量重复的诊断信息，（并且/或者）有创建新的用的上的格式符的想法，请发到cfe-dev邮件列表里面。  
+
+“sub” format  
+Example: 下面的TextSubstitution类型的记录定义:
+```
+def select_ovl_candidate : TextSubstitution<
+  "%select{function|constructor}0%select{| template| %2}1">;
+```
+可以被用到  
+```
+def note_ovl_candidate : Note<
+  "candidate %sub{select_ovl_candidate}3,2,1 not viable">;
+```
+这种写法和直接使用"candidate %select{function|constructor}3%select{| template| %1}2 not viable"是等效的。  
+ 
+Description: 这个格式符可以避免在大量的诊断中进行逐字重复。%sub的参数必须是TextSubstitution表生成记录。其实例化时需要指定所有用到的参数，The substitution must specify all arguments used by the substitution, and the modifier indexes in the substitution are re-numbered accordingly. The substituted text must itself be a valid format string before substitution.  
+
 
 ### 产生诊断
 在Diagnostic*Kinds.td文件中创建入口点之后，你需要编写代码来检测相应情况并且生成诊断。Clang中的几个组件（例如preprocessor, Sema等）提供了一个辅助函数"Diag"，这个函数会创建诊断并且传入参数、代码范围以及诊断相关的其他信息。  
@@ -230,7 +260,7 @@ Token有两种表现形式：annotation Token和普通Token。普通Token就是�
 
 ## 注释符号
 注释符号是由语法分析器合成并注入预处理器的符号流（替换现有符号）的符号，用于记录语法分析器发现的语法信息。比如说，如果发现“foo”是一个类型，那么“foo” tok::identifier符号就被替换成tok::annot_typename。这个可以带来以下几个好处：1) 语法分析时，很容易把C++中限定的符号名（比如“foo::bar::baz<42>::t”）当成一个单一的符号处理。2) 如果语法分析过程有回溯，那么再次分析时，不需要重新分析判断符号是不是变量、类型、模板等等。  
-注释符号由语法分析器生成，并且会被再次注入到预处理器的符号流里面（会替代一些已经存在的符号）。因为注释符号只存在于已处理完毕预处理阶段的符号中，所以不需要追踪只有预处理才需要的标记，比如说“本行开头”之类的。另外，一个注释符号可以“覆盖”一个预处理符号序列（比如：a::b::c是5个预处理符号），所以，注释符号的字段内容和普通符号的字段有差异（当然字段内容是复用的）：  
+注释符号由语法分析器生成，并且会被再次注入到预处理器的符号流里面（会替代一些已经存在的符号）。因为注释符号只存在于已处理完毕预处理阶段的符号中，所以不需要追踪只有预处理才需要的标记，比如说“本行开头”之类的。另外，一个注释符号可以“覆盖”一个预处理符号序列（比如：`a::b::c`是5个预处理符号），所以，注释符号的字段内容和普通符号的字段有差异（当然字段内容是复用的）：  
 - SourceLocation “Location”注释符号的SourceLocation指明所替换的符号序列的最前面一个。针对上面的例子来说，就是"a"
 - SourceLocation “AnnotationEndLoc”指明所替换的符号序列的最后一个。针对上面的例子来说，就是"c"
 - void* “AnnotationValue”包含了一个信息不明确的数据，从Sema中获取用于语法分析。语法分析器会只保存来自Sema的信息，并根据注释符号的种类进行后续的解释操作。
@@ -622,7 +652,7 @@ A   // Set an error to A
 
 #### ExternalASTSource
 ExternalASTSource是和ASTContext关联的抽象接口。它提供了通过迭代或者名字查找来访问声明上下文中的声明的能力。依赖外部AST的声明上下文需要按需加载其声明信息。这就说明（在未加载时）声明的列表（保存在链表中，头是DeclContext::FirstDecl）可能是空的，不过类似DeclContext::lookup()的成员函数可能会初始化加载流程。  
-一般来讲，外部源代码是和预编译头文件相关的。比如，如果从预编译头文件中加载一个类，那么该类的成员只有在需要在该类的上下文中进行查找时才会被加载。
+一般来讲，外部源代码是和预编译头文件相关的。比如，如果从预编译头文件中加载一个类，那么该类的成员只有在需要在该类的上下文中进行查找时才会被加载。  
 考虑LLDB的情况，一个ExternalASTSource接口的实现类，是和对应表达式所在的AST上下文相关联的。这个实现是通过ASTImporter被发现的。通过这种方式，LLDB可以复用Clang的分析机制来从调试数据（比如DWARF，调试信息存储格式）中合成底层的AST。从ASTImporter的角度看，这意味着源和目标上下文中，可能包含存储了外部词法信息的声明上下文。如果目标上下文中的DeclContext对象包含了外部词法信息的存储，就必须特殊处理已经被加载的声明信息。否则，导入过程会变得不可控。比如，使用常规的DeclContext::lookup()在目标上下文中查找存在的声明，在导入声明的过程中，lookup方法会出现递归调用从而导致出现新的导入操作。（在初始化一个尚未注册的查找时，已经开始从源上下文中导入了）所以这里需要用DeclContext::noload_lookup()来代替。
 
 ### 类模板的实例化
@@ -668,7 +698,7 @@ CFG类被设计用来表达一个语句的代码级的控制流图。CFG比较�
 
 ### 入口/出口语句块
 每个CFG包含两个特殊的块：入口块（通过CFG::getEntry()）访问，没有边指向该块；以及出口块，（通过 CFG::getExit()访问），没有边从该块指出。这两个块不包含语句，其作用是指明一段实体代码的入口和出口，比如函数体。这些空块的存在简化了从CFG顶层进行分析的实现。  
-条件控制流
+### 条件控制流
 条件控制流（比如if语句和循环）通过CFGBlock之间的边来表达。因为不同的C系语言的构建也会引发控制流，每个CFGBlock也记录了额外的Stmt*来指明该块的结束符。一个结束符就是导致控制流的语句，可以用来确定块之间的控制流的流转方式。比如，if-statement这类语句，其结束符就是表达指定分支的IfStmt。
 为了说明这一情况，考虑如下代码：
 ```c
@@ -762,7 +792,7 @@ B4的结束符是指向AST中IfStmt语句的指针。输出if[B4,2]的原因是�
 ### 属性的基础信息
 Clang中，属性在如下三个时机中处理：进行语法分析时，从语法属性转换成语义属性时，语义分析阶段处理该属性时。
 属性的语法分析过程由不同的属性对应的句法决定，比如GNU, C++11, 微软各自风格的属性；也包括属性的表定义中所提供的信息。属性对象进行语法分析的最终结果，是一个ParsedAttr类的对象。这些转换后的属性链成一串，附加在声明上。除了关键字属性之外，属性的语法分析由Clang自动进行。当实现属性时，关键字的转换和对应ParsedAttr对象的创建必须手动处理。  
-最终，在语法分析属性可以转换成语义分析属性时，会以Decl和ParsedAttr作为参数调用Sema::ProcessDeclAttributeList()方法。语法属性转换成语义属性这个流程依赖于属性的定义和语义要求。转换结果的是一个挂在该Decl上的语义属性对象，可以通过Decl::getAttr<T>()获取。
+最终，在语法分析属性可以转换成语义分析属性时，会以Decl和ParsedAttr作为参数调用Sema::ProcessDeclAttributeList()方法。语法属性转换成语义属性这个流程依赖于属性的定义和语义要求。转换结果的是一个挂在该Decl上的语义属性对象，可以通过Decl::getAttr\<T\>()获取。
 语义属性的结果也通过Attr.td中的属性定义管理。这个定义用于自动生成实现该属性功能的代码，比如clang::Attr的子类，用于语法分析的信息，部分属性的语义检查等。
 ### include/clang/Basic/Attr.td
 为Clang添加新属性的第一步是在include/clang/Basic/Attr.td中添加其定义。这个表生成定义必须继承Attr（表生成，而非语义的）的定义，或者一个或多个其继承者。大部分属性都是继承自InheritableAttr类型，这个类型说明该属性可以被其关联的Decl的二次声明继承。InheritableParamAttr和InheritableAttr类似，不同点在于InheritableParamAttr是作用于参数的。如果某个属性是类型相关的，那么需要继承的类型是TypeAttr，并且也不会生成对应的AST内容。（注意，本文档不涵盖类型属性创建的内容）。一个属性继承IgnoredAttr的话，那么整个属性会被分析，但是只会生成一个忽略的属性诊断，这种场景可以应用于非Clang编译器的需求。  

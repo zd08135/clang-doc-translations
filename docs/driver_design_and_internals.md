@@ -88,7 +88,9 @@ Clang驱动设计的第一号目标，就是可以让用户可以更容易地去
 
 下图展示了驱动架构中的重要组件和相互关系。橙色部分代表驱动创建的具体的数据结构，绿色部分指明操作这些数据结构的概念上独立的阶段，蓝色部分是一些重要的辅助类。
 
-
+<p align="center">
+<img src="https://releases.llvm.org/11.0.0/tools/clang/docs/_images/DriverArchitecture.png">
+</p>
 
 ## 驱动阶段
 

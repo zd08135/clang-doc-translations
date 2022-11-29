@@ -52,3 +52,7 @@ TokenLexer类是一个符号的provider，可以从来自其他地方的token中
 
 # MultipleIncludeOpt类
 这个类实现一个简单的小状态机来识别标准的#ifndef XX / #define的习惯用法，这个用法主要用来防止头文件的重复#include。如果一个buffer用了这个惯用法，并且后面跟着#include指令，预处理器就可以很简单地检查这个标记是否定义。如果已经定义了，预处理器就会整个忽略include这个头文件。
+
+
+# 原文
+[原文](https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html#introduction)

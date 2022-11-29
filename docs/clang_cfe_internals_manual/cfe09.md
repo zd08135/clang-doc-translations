@@ -506,3 +506,6 @@ B4的结束符是指向AST中IfStmt语句的指针。输出if[B4,2]的原因是�
 - __builtin_inf, nan, ...: 这些被看成是浮点数常量
 - __builtin_abs, copysign, ...: 按照通用的常量表达式处理常量折叠
 - __builtin_strlen 和 strlen: 参数为字符串字面常量时，按照i-c-e处理常量折叠
+
+# 原文
+[原文](https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html#introduction)

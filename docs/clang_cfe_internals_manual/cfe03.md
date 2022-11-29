@@ -191,3 +191,9 @@ x = foo + bar;
 ^first    ^last
 ```
 为了从这种表达转成基于字符的表达，last的位置需要调整成为指向token的结尾，调整可以通过Lexer::MeasureTokenLength() 或者 Lexer::getLocForEndOfToken()方法实现。极少情况下，我们需要字符级别的代码范围，这个时候可使用CharSourceRange类。
+
+
+
+# 原文
+
+[原文](https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html#the-clang-basic-library)

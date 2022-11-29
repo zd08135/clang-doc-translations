@@ -1,6 +1,6 @@
 
 # 声明name信息
-DeclarationName类用来描述Clang中的一个声明的name。C系语言的生命有多种方式。大多数的声明name都是最简单的标识符，比如f(int x)中的'f'和'x'。C++中，声明name还包括类构造函数（struct Klass { Klass(); }中的 Klass），类析构函数（~Klass），重载的操作符（operator+），以及转换函数(operator void const *)。在Objective-C中，声明name包括，OC的方法，包括方法名和参数名。因为因为上面这些全部的实体，包括变量，函数，OC方法，C++构造析构函数，操作符之类都由Clang的标准NamedDecl类描述，所以就设计了DeclarationName类来高效的表达不同种类的name）  
+DeclarationName类用来描述Clang中的一个声明的name。C系语言的声明有多种方式。大多数的声明name都是最简单的标识符，比如f(int x)中的'f'和'x'。C++中，声明name还包括类构造函数（struct Klass { Klass(); }中的 Klass），类析构函数（~Klass），重载的操作符（operator+），以及转换函数(operator void const *)。在Objective-C中，声明name包括，OC的方法，包括方法名和参数名。因为因为上面这些全部的实体，包括变量，函数，OC方法，C++构造析构函数，操作符之类都由Clang的标准NamedDecl类描述，所以就设计了DeclarationName类来高效的表达不同种类的name）  
 对于一个DeclarationName的实例N，N.getNameKind()会返回一个值来说明N中的name是哪一种。包括下面10个选项（都是在DeclarationName类的内部）：
 - Identifier  
 普通标识符。可通过N.getAsIdentifierInfo()获取对应的IdentifierInfo*指针

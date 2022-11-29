@@ -106,5 +106,5 @@ clang::Decl对象可使用hasAttr\<T\>的接口来查询该属性是否存在，
    - 如果表达式有新的类型，或者除了子表达式之外的其他有趣特性，可以扩展libclang的CursorVisitor类来提供对表达式更好的可视化，这对多个IDE特性有帮助，比如语法高亮，交叉引用等。可以使用c-index-test辅助程序来测试表达式的这些特性。
 
 
----------------------
+---------------------    
 [原文](https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html#introduction)

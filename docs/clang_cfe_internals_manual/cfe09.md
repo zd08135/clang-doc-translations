@@ -508,4 +508,5 @@ B4的结束符是指向AST中IfStmt语句的指针。输出if[B4,2]的原因是�
 - __builtin_strlen 和 strlen: 参数为字符串字面常量时，按照i-c-e处理常量折叠
 
 ---------------------    
+
 [原文](https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html#introduction)

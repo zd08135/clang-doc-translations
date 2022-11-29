@@ -9,7 +9,7 @@
     * [编译前端库](docs/clang_cfe_internals_manual/cfe06.md)
     * [词法分析和预处理库](docs/clang_cfe_internals_manual/cfe07.md)
     * [语法分析库](docs/clang_cfe_internals_manual/cfe08.md)
-    * [AST库](docs/clang_cfe_internals_manual/cfe09.md)
+    * [AST库](docs/clang_cfe_internals_manual/cfe09._.md)
         * [设计哲学](docs/clang_cfe_internals_manual/cfe09.01.md)
     * [语义分析库](docs/clang_cfe_internals_manual/cfe10.md)
     * [代码生成库](docs/clang_cfe_internals_manual/cfe11.md)

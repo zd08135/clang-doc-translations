@@ -4,4 +4,5 @@
     * [基本说明](docs/clang_cfe_internals_manual/cfe01.md)
     * [介绍](docs/clang_cfe_internals_manual/cfe02.md)
     * [特性和目标](docs/clang_cfe_internals_manual/cfe03.md)
+    * [内核设计与实现](docs/clang_cfe_internals_manual/cfe04.md)
 * [Driver Design Internals](docs/driver_design_and_internals.md)

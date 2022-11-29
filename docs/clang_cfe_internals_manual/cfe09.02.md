@@ -34,4 +34,5 @@ test.c:8:1: error: indirection requires pointer operand ('foo' invalid)
 公认类型也带来一些复杂性，需要小心处理。一般情况下，isa/cast/dyn_cast等操作符是不应该在检查AST的代码中出现的。比如，类型检查需要保证\*操作符的操作数，一定是指针类型。那么，这就没法正确地检查这样的表达式“isa<PointerType>(SubExpr->getType())"，因为如果SubExpr->getType()是一个typedef的类型，那么这个isa的推断就会出错。  
 这个问题的解决方案是，在Type类中提供一个helper方法来检查其属性。本例中，使用SubExpr->getType()->isPointerType()来进行检查应该是正确的。如果其公认类型是一个指针，那么这个方法就会返回true，唯一需要注意的地方是不要使用isa/cast/dyn_cast这些操作符。  
 第二个问题是，如何访问这个指针对应的类型。从上面的例子继续，\*操作的结果类型，必然是该表达式所指向的类型（比如，定义bar vx, \*vx的类型，就是foo，就是int）。为了找出这个类型，我们需要找到可以最佳捕获这个typedef信息的PointerType的实例。如果表达式本身的类型就是字面上的PointerType，那么就可以直接返回类型；否则我们必须沿着typedef信息挖下去。比如，若一个子表达式的类型是foo\*，那么我们就返回这个类型。如果类型是bar，我们希望返回的是foo\*（但是不是int\*）。为了达到这一目的，Type类提供了getAsPointerType()方法来检查类型本身是不是指针，如果是的话，就直接返回；否则会找一个最佳匹配的；如果不能匹配就返回空指针。  
-这个结构有一点不是很清楚，需要好好的研究下才能明白。  
+
+> 这个结构有一点不是很清楚，需要好好的研究下才能明白。  

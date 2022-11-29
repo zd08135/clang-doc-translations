@@ -509,4 +509,4 @@ B4的结束符是指向AST中IfStmt语句的指针。输出if[B4,2]的原因是�
 
 ---------------------    
 
-[原文](https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html#introduction)
+[原文](https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html#the-ast-library)

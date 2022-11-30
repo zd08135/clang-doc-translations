@@ -10,7 +10,7 @@
 ## 版本选择
 
 基于clang11版本文档翻译  
-<https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html>
+<https://releases.llvm.org/15.0.0/tools/clang/docs/InternalsManual.html>
 
 选择11.0版本的代码，具体版本如下：
 
@@ -254,7 +254,7 @@ x = foo + bar;
 clang驱动器和相应的库见这里
 
 # 预编译头文件
-Clang支持预编译头文件（precompiled headers, [PCH](https://releases.llvm.org/11.0.0/tools/clang/docs/PCHInternals.html)，这些头文件使用[LLVM bitstream format](https://llvm.org/docs/BitCodeFormat.html)格式对Clang内部的数据结构做了编码。
+Clang支持预编译头文件（precompiled headers, [PCH](https://releases.llvm.org/15.0.0/tools/clang/docs/PCHInternals.html)，这些头文件使用[LLVM bitstream format](https://llvm.org/docs/BitCodeFormat.html)格式对Clang内部的数据结构做了编码。
 
 # 编译前端库
 编译前端库主要提供了基于Clang库构建工具（二次开发）的能力，比如一些输出诊断的方法。

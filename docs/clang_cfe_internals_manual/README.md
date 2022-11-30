@@ -7,21 +7,28 @@
 
 ## 版本选择
 
-基于clang11版本文档翻译  
+基于clang15版本文档翻译  
 <https://releases.llvm.org/15.0.0/tools/clang/docs/InternalsManual.html>
 
-选择11.0版本的代码，具体版本如下：
+选择15.0版本的代码，具体版本如下：
 
 ```
-commit 1fdec59bffc11ae37eb51a1b9869f0696bfd5312 (HEAD, tag: llvmorg-11.1.0-rc3, tag: llvmorg-11.1.0, origin/release/11.x)
-Author: Andi-Bogdan Postelnicu <abpostelnicu@me.com>
-Date:   Wed Feb 3 17:38:49 2021 +0000
+commit 5c68a1cb123161b54b72ce90e7975d95a8eaf2a4 (HEAD, tag: llvmorg-15.0.4, origin/release/15.x, release/15.x)
+Author: Matt Arsenault <Matthew.Arsenault@amd.com>
+Date:   Mon Sep 26 23:07:49 2022 -0400
 
-    [lldb] Fix fallout caused by D89156 on 11.0.1 for MacOS
-
-    Fix fallout caused by D89156 on 11.0.1 for MacOS
-
-    Differential Revision: https://reviews.llvm.org/D95683
+    AMDGPU: Make various vector undefs legal
+    
+    Surprisingly these were getting legalized to something
+    zero initialized.
+    
+    This fixes an infinite loop when combining some vector types.
+    Also fixes zero initializing some undef values.
+    
+    SimplifyDemandedVectorElts / SimplifyDemandedBits are not checking
+    for the legality of the output undefs they are replacing unused
+    operations with. This resulted in turning vectors into undefs
+    that were later re-legalized back into zero vectors.
 ```
 ## 平台
 

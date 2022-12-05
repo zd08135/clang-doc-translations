@@ -122,7 +122,13 @@ Clang的`-cc1`前端的命令行接口和驱动选项一起，在`clang/Driver/O
   }
 ```
 
+# 选项marshalling架构
 
+选项marshalling架构会自动完成将`-cc1`前端的命令行参数转换输入`CompilerInvocation`或者由`CompilerInvocation`生成参数的过程。这个系统将大量的重复而简单的代码转成可被声明并进行表生成的注解，被应用到绝大部分的`-cc1`命令行接口的解析中。本节对该系统做一个概述。  
+
+**注意：** marshalling架构不适用于专用于驱动的选项。只有为`-cc1`提供的选项才需要从/向`CompilerInvocation`进行参数的marshall操作。  
+
+为了读取和修改`CompilerInvocation`的内容
 
 
 ---------------------    

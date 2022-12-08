@@ -1,4 +1,4 @@
-ASTImporter类将AST节点从一个ASTContext导入另一个。可参考文档[ASTImporter: ](https://releases.llvm.org/11.0.0/tools/clang/docs/LibASTImporter.html)和import算法描述了解更多信息。
+ASTImporter类将AST节点从一个ASTContext导入另一个。可参考文档[ASTImporter: ](https://releases.llvm.org/15.0.0/tools/clang/docs/LibASTImporter.html)和import算法描述了解更多信息。
 
 ## 抽象语法图
 和名字不同，Clang的AST并不是一个真的树，而是带回路的有向图。有向图的一个示例是ClassTemplateDecl与其模板实例化后的CXXRecordDecl。实例化之后的CXXRecordDecl描述了该类模板的成员和方法，ClassTemplateDecl则记录了模板相关的信息，比如，模板参数等。ClassTemplateDecl::getTemplatedDecl()可以获得实例化的CXXRecordDecl类，CXXRecordDecl::getDescribedTemplate()反过来可以获得其所实例化的模板类；所以这两个模板与实例的节点之间就存在一个回路。AST中也存在其他不同的回路。

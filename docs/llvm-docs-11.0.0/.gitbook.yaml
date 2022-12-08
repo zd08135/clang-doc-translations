@@ -3,5 +3,5 @@ root: ./
 
 structure:  
     readme: docs/llvm-docs-11.0.0/README.md  
-    summary: docs/llvm-docs-11.0.0/SUMMARY.md  
+    summary: SUMMARY.md  
 

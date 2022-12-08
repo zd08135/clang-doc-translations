@@ -3,5 +3,5 @@ root: ./
 
 structure:  
     readme: docs/cbc_tutorial/README.md  
-    summary: docs/cbc_tutorial/SUMMARY.md  
+    summary: SUMMARY.md  
 

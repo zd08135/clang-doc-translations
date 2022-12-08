@@ -36,3 +36,6 @@ LLVM默认使用的C++标准为C++14，不过clang-15已经完整支持了C++17�
 
 除了标准库与LLVM（及LLVM使用的第三方库）之外，我们不会用到第三方库。即便未来需要的话，也优先寻找LLVM内部实现的轮子。  
 
+# 代码路径
+
+本教程的代码路径为：[https://gitee.com/zdking/llvm_learn.git](https://gitee.com/zdking/llvm_learn.git)  

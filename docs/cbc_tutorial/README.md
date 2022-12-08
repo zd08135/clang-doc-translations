@@ -1,7 +1,4 @@
-# clang-doc-translations
-some clang doc translation to zh_CN
-
-这里是一些llvm和clang相关的文档翻译，纯粹出于个人爱好。 
+# cbc-compiler-tutorial
 
 本书部署在gitbook + github平台，也包括了gitee作为github的镜像。  
 gitbook: <https://zdkings-llvm-docs.gitbook.io/cbc-tutorial/>  

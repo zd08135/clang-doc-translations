@@ -110,8 +110,8 @@ if, for, while, break, return这些语句，都不会产生一个具体的值被
 
 ## Parse的过程
 
-执行了lex操作之后，输入的字符串会被转换成一个Token列表，  
-在Parse的时候，就会从这个列表中不断地读取token。 
+执行了lex操作之后，输入的字符串会被转换成一个Token列表，我们称其为TokenCache  
+在Parse的时候，就会从这个TokenCache中不断地读取token。 
 
 以下为cbc支持的整个产生式序列。  
 
@@ -126,9 +126,11 @@ if, for, while, break, return这些语句，都不会产生一个具体的值被
 
 5. $def_func -> $storage $typeref $name "(" $params ")" $block
 
-6. $storage -> "static" / ^
+6. $def_var -> $storage $type $name ("=" $expr) ("," $name "=" $expr)* ";"
 
-7. $params -> ^ / $param ("," $param)*
+7. $storage -> "static" / ^
+
+8. $params -> ^ / $param ("," $param)*
 
 ```
 

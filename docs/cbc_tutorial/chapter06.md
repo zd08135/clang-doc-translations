@@ -102,9 +102,42 @@ $stmt -> ";" / $expr ";" / $block / $if_stmt / $while_stmt / $dowhile_stmt / $fo
 
 就是基本的表达式 / 语句块 / 控制流。
 
-本节主要关注的是基本的表达式。  
+本节主要关注的是基本的表达式。
+不过，在看表达式的解析之前，首先要了解llvm中语句块的知识。  
 
-# 语法分析
+## 语句块的代码生成
+
+llvm代码中，使用结构体llvm::BasicBlock来描述一个语句块，语句块具有以下特点：
+
+- 每个代码中实际执行的指令，都属于某一个具体的BasicBlock。  
+- BasicBlock必须挂在一个llvm::Function之下。  
+- 每个BasicBlock的**最后**都有一条跳转指令离开该BasicBlock。  
+- 除了函数中的第一个BasicBlock，一个BasicBlock至少要有一条跳转指令作为目标。  
+
+这里我们先不考虑语句块的嵌套，那么一个函数定义里面，就只有一个语句块。
+该语句块以ret语句作为结束。  
+
+可以使用`BasicBlock::Create`创建语句块。  
+```
+static BasicBlock *Create(LLVMContext &Context, const Twine &Name = "",
+                            Function *Parent = nullptr,
+                            BasicBlock *InsertBefore = nullptr);
+```
+insertBefore != nullptr的情况，主要用于对已生成的代码做修改，比如插桩等。  
+我们这里都是按照源码顺序生成代码的，比较少用到insertbefore != nullptr的情况。
+
+Parent != nullptr，表示在函数中插入该block；那么为什么还会有Parent == nullptr的情况呢？  
+原因是，一些情况对应的block代码尚未生成，但是此时又必须有一个跳转指令跳转过去。这种情况就必须先创建无主的BasicBlock，之后再把该BasicBlock，插入到实际的位置。  
+比如对while语句生成时，在生成循环条件的表达式之后，这时就要生成br cond的跳转指令，如果条件表达式的值为false，就要跳转到整个while之后，但是此时while的循环体还没有生成，那么就要采用这种技巧。  
+
+之后，可以通过SetInsertBlock和GetInsertBlock接口不断调整插入指令的位置，从而完成整个语句块的代码生成。  
+这里有一个坑要提示一下，就是开发者不能假定当前指令的插入位置。  
+以前学习编译器的教程时，我们可能会这样处理，就是把指令的汇编语言的文本按顺序写到汇编代码中。那么，可能有一个假定，指令的生成会紧挨着之前生成的位置继续执行下去。但是这对于llvm ir的basic block是行不通的。  
+按前面的说法，一个语句块会以跳转指令作为结束，那么
+
+# 表达式
+
+## 语法分析
 
 表达式(Expression)这里指的是可以计算获得一个具体的值的代码。  
 比如a+b, 1, "hello", 12.34, func(10, 20)等等，注意赋值类表达式也是有值的，比如a=123，这个表达式的值就是123，b=(a=456)执行之后，b的值就是456。  
@@ -135,7 +168,7 @@ int m = 12.345;
 
 关于运算，我们也使用优先级定义的方式来动态生成运算的AST，这样就不能通过固定的模式来描述产生式了，这里也是我们使用手写分析器的原因之一。  
 
-# 代码生成
+## 代码生成
 
 在llvm中，本身就支持了这些常量的表达，对应的类如下：
 
@@ -151,3 +184,11 @@ llvm::IRBuilder中，提供了很多用于生成计算IR的接口，并且名字
 要注意，llvm::IRBuilder中，一般的二元操作数指令，比如加减乘除，浮点数和整数的操作指令是分开的，如果指令的参数llvm::Value的类型不对，比如fadd中，传入了一个llvm::constantint，可能会导致程序莫名崩溃。  
 
 在调用IRBuilder的CreateXXX生成指令之前，必须进行完善的检查动作。   
+
+## return语句的处理
+
+这里专门提一下return，是因为后面会真正的尝试定义函数并执行，
+只有实现了return语句，才可以拿到函数的返回值，从而检验编译的正确性。  
+（当然，能看到输出，才有学下去的动力不是？）
+
+在llvm IR中，函数的return可以由ret指令表示，这个指令可以由`IRBuilder::CreateRet`接口生成 

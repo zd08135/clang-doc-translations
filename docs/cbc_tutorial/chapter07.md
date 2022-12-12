@@ -21,11 +21,12 @@
   
   也就是说，现在从llvm后端拿到的指针类型，是无法记录指针指向的类型的，这样对于前端来讲是不可接受的。出于这样的考虑，我们只能在前端维护指针的这些信息。  
   
-> 关于opaque ptr更多信息：https://releases.llvm.org/15.0.0/docs/OpaquePointers.html
+> 关于opaque ptr更多信息：https://releases.llvm.org/15.0.0/docs/OpaquePointers.html  
+> clang的Type代码在此：clang/include/clang/AST/Type.h  
 
 - 对const和volatile的支持  
   现在并未支持const类型，但是不支持的主要原因是初始化列表的解析不好解决，并非无法支持const的限制修改能力。为了支持const的能力，这里需要在编译前端记录这样的信息，在尝试修改时抛出错误。而llvm后端是无法记录这样的信息的。这里也只能在前端做记录。  
-  
+
 - 可扩展性  
   如果需要针对类型增加更多的特性，直接去改llvm是不现实的，所以也只能通过前端维护类型信息，后续的迭代基于前端自己的数据结构进行。  
 
@@ -49,3 +50,44 @@ void：只能用于函数（不支持参数使用void）
 数组类型
 结构体类型
 函数类型
+
+# 实现描述
+
+这里采用了和clang/llvm类似的类型定义方式。  
+
+- 前端定义一个TypeContext，用于记录类型信息。该TypeContext在一个编译单元的编译过程中全局唯一。类型的实例全部保存在TypeContext中。  
+- 在TypeContext中，隐藏类型的构造函数，统一使用类的Create/Get接口创建之。主要是尽量让相同的类型使用同一个变量。这样既省空间，也方便类型一致的判断。  
+- 类型包括Type和QualInfo两部分，QualInfo就是用于保存限定符信息，比如const/volatile
+- typedef类型别名，只要记录直接用string->Type*即可解决。
+- 基本/指针/数组/结构体类型各自有一个类型ID，该类型ID用于判断类型是否是基本/指针/数组/结构体类型。使用这类ID可以避免判断指针具体类型时的RTTI动态检查，提高效率。  
+
+这里为了能完成基本的程序编写，我们先只考虑基本类型和函数类型。  
+
+
+## 基本类型
+
+TypeContext中预定义了上面提到的若干个基本类型。  
+get时直接返回即可。  
+
+基本类型和llvm类型的对应关系：  
+
+- bool/char/int.. -> llvm::IntegerType
+  这一部分类型可以通过llvm::Type的接口直接获取对应的类型实例。  
+  
+- float/double -> llvm::GetFloatType/GetDoubleType
+
+- void -> llvm::getVoidTy
+ 
+## 函数类型 
+  
+函数类型包括返回值类型、参数个数和各参数的类型。  
+
+这里用到了类型的嵌套，嵌套时，子类型成员用的是QualType(QualInfo + Type*)，
+而不是直接用Type*，这个原因是为了支持函数/返回值的const能力。  
+这也和clang的实现方式类似，  
+
+如果看clang的代码的话，clang中使用了一些特殊的技巧来优化内存占用，
+我们目前还不需要这一点，单纯用unsigned代表qualinfo, 用指针（在64位下长度64）代表Type*即可。  
+
+
+

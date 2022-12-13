@@ -6,4 +6,6 @@
     * [LLVM基础](docs/cbc_tutorial/chapter04.md)
     * [Lex和Parse](docs/cbc_tutorial/chapter05.md)
     * [函数和语句块](docs/cbc_tutorial/chapter06.md)
-    * [类型](docs/cbc_tutorial/chapter07.md)
+    * [类型I](docs/cbc_tutorial/chapter07.md)
+    * [JIT](docs/cbc_tutorial/chapter08.md)
+    * [变量](docs/cbc_tutorial/chapter09.md)

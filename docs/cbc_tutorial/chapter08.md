@@ -1,41 +1,25 @@
 
-# 变量
+到这里，我们学习的内容如下：
 
-现在，可以定义基本类型的变量了。  
+- 可以解析基本的符号
+- 可以生成AST
+- 学习了函数/语句块和ret语句的代码生成
+- 学习了基本运算指令的代码生成
+- 学习了基本的类型
 
+以现在的知识储备，可以先完成一个基本的程序解析器———计算器了。  
+现在遇到的问题是，生成了代码，又怎么运行呢？  
 
-变量分为局部变量和全局变量。  
-我们先考虑局部变量的实现。
+一般学习C语言时，写好了程序都是要编译一下，生成一个可执行文件，再运行这个可执行文件。  
+但是，现在我们还无法直接生成可执行文件，一种方式是生成llvm-ir文件，再由clang编译ir执行，这种方式固然不错，有个问题就是，现在我们的编译器属于开发状态，会经常变动，如果每测一下都要：cbc->clang->a.out三步，就太麻烦了；所以我们用另一种方式，也是教程中专门教过的，就是JIT了。  
 
-# 局部变量
+使用JIT还有一个好处，就是方便做自动化的单元测试。  
+如果对着教程执行下来，就知道JIT是可以直接运行IR的函数，也就是说，我们可以像运行自己写的代码一样，运行我们编译后的IR的函数，并且拿到结果，这样，就可以直接将测试代码传入JIT，然后判断函数结果和预期是否一致，就可以自动化测试了。  
 
-如果用clang编译C语言代码，生成ir时，会看到有很多的alloca指令：
-```
-Function Attrs: noinline nounwind optnone uwtable
-define dso_local i32 @my_function(i32 noundef %0, i32 noundef %1) #0 {
-  %3 = alloca i32, align 4
-  %4 = alloca i32, align 4
-  %5 = alloca i32, align 4
-  ...
-```
-> https://releases.llvm.org/15.0.0/docs/LangRef.html#alloca-instruction
+官方教程，实现了一个KaleidoscopeJIT。不过，在LLVM中，如果不需要特殊定制的话，本身就提供了一个JIT：LLJIT。
 
-alloca的作用是在当前执行函数的栈帧上分配空间，这些空间在函数执行结束返回给调用者时自动释放。  
-可以用alloca分配的空间来作为局部变量。  
+LLVM中提供的JIT有2种架构：MCJIT和ORC，LLJIT属于ORC架构。  
 
-alloca的作用十分强大，除了基本类型之外，数组/指针/结构体等都可以用alloca指令分配。  
-这里先看针对基本类型的局部变量的分配。  
-
-创建alloca的接口如下：
-```
-AllocaInst *CreateAlloca(Type *Ty, Value *ArraySize = nullptr,
-                           const Twine &Name = "");
-```
-
-CreateAlloca实际上是分配了一个空间，返回指向该空间的指针，对应的值的类型为PointerType
-
-- Ty: 变量类型
-- ArraySize：只能传一个IntegerType的Value值，这个参数没啥用。实际上ArrayType本身就有size，传指定值的ArrayType就可以正确分配。  
-- Name：这里有一个误解就是这里必须传变量的名字。实际上这里传的值只是一个指示性的作用。变量和名字的关联是由前端自己解决的。如果看clang的ir，这里就没有名字。不过为了方便调试，我们在调用时，会传入变量的名字。  
-
+> 代码路径：llvm/include/llvm/ExecutionEngine/Orc/LLJIT.h  
+> JIT介绍：https://releases.llvm.org/15.0.0/docs/ORCv2.html  
 

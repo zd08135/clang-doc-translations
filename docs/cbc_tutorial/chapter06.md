@@ -130,10 +130,26 @@ Parent != nullptr，表示在函数中插入该block；那么为什么还会有P
 原因是，一些情况对应的block代码尚未生成，但是此时又必须有一个跳转指令跳转过去。这种情况就必须先创建无主的BasicBlock，之后再把该BasicBlock，插入到实际的位置。  
 比如对while语句生成时，在生成循环条件的表达式之后，这时就要生成br cond的跳转指令，如果条件表达式的值为false，就要跳转到整个while之后，但是此时while的循环体还没有生成，那么就要采用这种技巧。  
 
-之后，可以通过SetInsertBlock和GetInsertBlock接口不断调整插入指令的位置，从而完成整个语句块的代码生成。  
+之后，可以通过SetInsertPoint和GetInsertBlock接口不断调整插入指令的位置，从而完成整个语句块的代码生成。  
 这里有一个坑要提示一下，就是开发者不能假定当前指令的插入位置。  
-以前学习编译器的教程时，我们可能会这样处理，就是把指令的汇编语言的文本按顺序写到汇编代码中。那么，可能有一个假定，指令的生成会紧挨着之前生成的位置继续执行下去。但是这对于llvm ir的basic block是行不通的。  
-按前面的说法，一个语句块会以跳转指令作为结束，那么
+以前学习编译器的教程时，我们可能会这样处理，就是把指令的汇编语言的文本按顺序写到汇编代码中。那么，可能有一个假定，指令的生成会紧挨着之前生成的位置继续执行下去；换句话说，会假定当之前的代码生成之后，新的指令会自动生成到后面的Block中。但是这对于llvm ir的basic block是行不通的。  
+
+一方面，llvm::Function中，llvm::BasicBlock是以链表数据结构组织的。  
+另一方面，按前面的说法，一个BasicBlock会以跳转指令作为结束，那么再向该BasicBlock添加指令就是未定义的行为了。生成跳转指令后，就必须修改插入位置为其他的BasicBlock中了。  
+
+另一个问题是，接口名`SetInsertPoint`和`GetInsertBlock`的疑问。  
+似乎看起来是在一个是操作InsertPoint，一个是操作InsertBlock，操作的是不同的东西。  
+这里就要看实现了。
+```
+/// This specifies that created instructions should be appended to the
+/// end of the specified block.
+void SetInsertPoint(BasicBlock *TheBB) {
+  BB = TheBB;
+  InsertPt = BB->end();
+}
+```
+从这个描述和实现来看，InsertPt这个变量才是实际的`InsertPoint`，但是这个接口不支持修改InsertPt的变量（其他同名接口可以）。这个函数的作用是设置指令插入的位置为当前Block的尾部，实际上这个接口叫`SetInsertBlock`更合适一点。  
+
 
 # 表达式
 
@@ -191,4 +207,6 @@ llvm::IRBuilder中，提供了很多用于生成计算IR的接口，并且名字
 只有实现了return语句，才可以拿到函数的返回值，从而检验编译的正确性。  
 （当然，能看到输出，才有学下去的动力不是？）
 
-在llvm IR中，函数的return可以由ret指令表示，这个指令可以由`IRBuilder::CreateRet`接口生成 
+在llvm IR中，函数的return可以由ret指令表示，这个指令可以由`IRBuilder::CreateRet`接口生成。  
+注意CreateRet中，参数的Type要和函数的返回类型的Type一致。  
+现在我们没有类型检查，所以开发者可以先自己手工保证类型的一致性。  

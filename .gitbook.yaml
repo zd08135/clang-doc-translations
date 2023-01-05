@@ -1,7 +1,7 @@
 
-root: ./
+root: ./  
 
-structure:
-    readme: docs/llvm-docs-15.0.0/README.md
-    summary: docs/llvm-docs-15.0.0/SUMMARY.md
+structure:  
+    readme: docs/cbc_tutorial/README.md  
+    summary: SUMMARY.md  
 

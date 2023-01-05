@@ -1,0 +1,7 @@
+
+root: ./  
+
+structure:  
+    readme: docs/cbc_tutorial/README.md  
+    summary: SUMMARY.md  
+

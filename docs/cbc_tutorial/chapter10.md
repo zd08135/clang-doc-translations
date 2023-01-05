@@ -3,7 +3,9 @@
 因为上述opaque ptr的缘故，llvm中的指针没有类型，在llvm一层，所有的指针类型都返回同一个值。 
 我们必须在前端记录指针和指向的值的类型。
   
-PointerType有一个成员
+PointerType有一个成员pointee，这个指向的是该指针对应的类型。  
+比如，某个PointerType实例，其pointee指向BuiltinType::int，那么该实例就对应int*类型。  
+其他的情况类似。  
   
 ## 针对typedef的处理
 

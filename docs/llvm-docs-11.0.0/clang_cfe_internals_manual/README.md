@@ -8,7 +8,7 @@
 ## 版本选择
 
 基于clang15版本文档翻译  
-<https://releases.llvm.org/15.0.0/tools/clang/docs/InternalsManual.html>
+<https://releases.llvm.org/11.0.0/tools/clang/docs/InternalsManual.html>
 
 选择15.0版本的代码，具体版本如下：
 

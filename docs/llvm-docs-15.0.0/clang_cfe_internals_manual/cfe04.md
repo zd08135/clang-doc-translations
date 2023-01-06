@@ -5,4 +5,4 @@ clang驱动器和相应的库见[这里](https://releases.llvm.org/15.0.0/tools/
 
 ---------------------    
 
-[原文](https://releases.llvm.org/15.0.0/tools/clang/docs/InternalsManual.html#introduction)
+[原文](https://releases.llvm.org/15.0.0/tools/clang/docs/InternalsManual.html#the-driver-library)

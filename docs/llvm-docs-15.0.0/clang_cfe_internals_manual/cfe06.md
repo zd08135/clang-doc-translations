@@ -1,3 +1,6 @@
+
+(编译前端库)
+
 编译前端库主要提供了基于Clang库构建工具（二次开发）的能力，比如一些输出诊断的方法。  
 
 # 调用编译器
@@ -241,8 +244,53 @@ def isysroot : JoinedOrSeparate<["-"], "isysroot">, Flags<[CC1Option]>,
 
 ## 字符串列表
 
+关键路径的默认值是`std::vector<std::string>`。该选项每次出现时，其值会被统一添加到该vector中。
 
+## 整数
 
+关键路径的默认值是指定的整数，忽略的情况下则是0。该选项出现时，值被`llvm::APInt`类成功解析后，其结果会被赋值到该路径中。  
+```
+def mstack_probe_size : Joined<["-"], "mstack-probe-size=">, Flags<[CC1Option]>,
+  MarshallingInfoInt<CodeGenOpts<"StackProbeSize">, "4096">;
+```
+
+## 枚举
+
+关键路径的默认值由`MarshallingInfoEnum`指定，并且会以`NormalizedValueScope`和`::`作为前缀。这就保证即使在不同的命名空间或者枚举类中也能正确引用枚举值。如果命令行输入的值不在`Values`的枚举范围内，那么就会产生一个错误诊断。否则，和该值所在索引相同的`NormalizedValues`中的元素（当然也要在范围内）就会赋值给关键路径。逗号分隔的字符串个数和`NormalizedValues`中元素的数量必须一致。
+
+```
+def mthread_model : Separate<["-"], "mthread-model">, Flags<[CC1Option]>,
+  Values<"posix,single">, NormalizedValues<["POSIX", "Single"]>,
+  NormalizedValuesScope<"LangOptions::ThreadModelKind">,
+  MarshallingInfoEnum<LangOpts<"ThreadModel">, "POSIX">;
+```
+
+> 上面示例中  
+> mthread-model选项的取值只有posix和single这2种，在Values里面是逗号分隔的字符串。  
+> 该枚举也定义了2个值：POSIX, Single  
+> 这两个值在实际生成代码时，会携带`LangOptions::ThreadModelKind::`前缀，从而保证不受作用域限制。  
+> 默认值是`MarshallingInfoEnum`指定的`POSIX`这个枚举值。  
+
+也可以在选项间定义关系
+
+## 推导
+
+关键路径的默认值由主要的`Marshalling`注解确定。然后，如果`ImpliedByAnyOf`的元素计算为true，那么关键路径的值就被设置为指定值，未指定值的话则为`true`。最终，该选项按照主要的注解来进行解析。  
+```
+def fms_extensions : Flag<["-"], "fms-extensions">, Flags<[CC1Option]>,
+  MarshallingInfoFlag<LangOpts<"MicrosoftExt">>,
+  ImpliedByAnyOf<[fms_compatibility.KeyPath], "true">;
+```
+
+## 条件
+
+只有`ShouldParseIf`计算为true时，才解析该选项。
+
+```
+def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Flags<[CC1Option]>,
+  MarshallingInfoFlag<LangOpts<"OpenMPIRBuilder">>,
+  ShouldParseIf<fopenmp.KeyPath>;
+```
 
 ---------------------    
 

@@ -2,6 +2,6 @@
 root: ./  
 
 structure:  
-    readme: docs/cbc_tutorial/README.md  
+    readme: docs/llvm-docs-11.0.0/README.md  
     summary: SUMMARY.md  
 

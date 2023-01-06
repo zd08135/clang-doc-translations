@@ -233,7 +233,14 @@ defm legacy_pass_manager : BoolOption<"f", "legacy-pass-manager",
 
 ## 字符串
 
-关键路径的默认值是指定的字符串，或者是空串。
+关键路径的默认值是指定的字符串，忽略的情况下则是空串。如果该选项出现在命令行中，那么对应的值就直接复制。
+```
+def isysroot : JoinedOrSeparate<["-"], "isysroot">, Flags<[CC1Option]>,
+  MarshallingInfoString<HeaderSearchOpts<"Sysroot">, [{"/"}]>;
+```
+
+## 字符串列表
+
 
 
 

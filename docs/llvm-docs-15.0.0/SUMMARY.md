@@ -21,4 +21,4 @@
     * [语义分析库](docs/llvm-docs-15.0.0/clang_cfe_internals_manual/cfe10.md)
     * [代码生成库](docs/llvm-docs-15.0.0/clang_cfe_internals_manual/cfe11.md)
     * [如何修改Clang](docs/llvm-docs-15.0.0/clang_cfe_internals_manual/cfe12.md)
-* [Driver Design Internals](docs/driver_design_and_internals.md)
+* [Driver Design Internals](docs/llvm-docs-15.0.0/driver_design_and_internals.md)

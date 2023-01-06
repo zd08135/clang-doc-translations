@@ -2,4 +2,4 @@
 
 ---------------------    
 
-[原文](https://releases.llvm.org/15.0.0/tools/clang/docs/InternalsManual.html#introduction)
+[原文](https://releases.llvm.org/15.0.0/tools/clang/docs/InternalsManual.html#the-sema-library)
